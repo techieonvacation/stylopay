@@ -6,10 +6,13 @@ export const ThemeToggleButton = () => {
   return (
     <button
       onClick={toggleTheme}
-      className="relative flex items-center justify-center text-gray-500 transition-colors bg-white border border-gray-200 rounded-full hover:text-dark-900 h-11 w-11 hover:bg-gray-100 hover:text-gray-700 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
+      className="group relative flex items-center justify-center h-10 w-10 md:h-11 md:w-11 shadow-sm rounded-full border border-border bg-background text-foreground
+       transition-all duration-300 ease-in-out hover:border-brand-primary hover:bg-brand-primary/5 hover:shadow-custom-md hover:scale-105 
+       focus:outline-none focus:ring-1 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background active:scale-95"
     >
+      {/* Sun Icon - Shows in dark mode */}
       <svg
-        className="hidden dark:block"
+        className="hidden dark:block h-5 w-5 text-[var(--text-secondary)] transition-all duration-300 group-hover:text-brand-primary group-hover:rotate-45 group-hover:scale-110 dark:text-[var(--text-secondary)] dark:group-hover:text-[var(--primary)]"
         width="20"
         height="20"
         viewBox="0 0 20 20"
@@ -23,8 +26,10 @@ export const ThemeToggleButton = () => {
           fill="currentColor"
         />
       </svg>
+
+      {/* Moon Icon - Shows in light mode */}
       <svg
-        className="dark:hidden"
+        className="dark:hidden h-5 w-5 text-[var(--text-secondary)] transition-all duration-300 group-hover:text-brand-primary group-hover:-rotate-12 group-hover:scale-110"
         width="20"
         height="20"
         viewBox="0 0 20 20"
@@ -36,6 +41,9 @@ export const ThemeToggleButton = () => {
           fill="currentColor"
         />
       </svg>
+
+      {/* Hover Effect Ring */}
+      <div className="absolute inset-0 rounded-full bg-gradient-to-r from-brand-primary/0 via-brand-primary/5 to-brand-accent/0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 dark:from-[var(--primary)]/0 dark:via-[var(--primary)]/10 dark:to-[var(--accent)]/0"></div>
     </button>
   );
 };

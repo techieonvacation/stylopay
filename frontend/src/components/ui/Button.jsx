@@ -50,87 +50,87 @@ const buttonSizes = {
 // Button variant configurations using CSS custom properties
 const buttonVariants = {
   primary: `
-    bg-[var(--btn-primary-bg)] 
-    text-[var(--btn-primary-text)] 
-    border border-[var(--btn-primary-bg)]
-    hover:bg-[var(--btn-primary-bg-hover)] 
-    hover:border-[var(--btn-primary-bg-hover)]
-    focus:ring-0 focus:ring-[var(--brand-primary)]/20
+    bg-primary
+    text-primary-foreground
+    border border-primary
+    hover:bg-primary-hover
+    hover:border-border
+    focus:ring-0 focus:ring-primary/20
     active:scale-95
-    shadow-[var(--shadow-sm)]
-    hover:shadow-[var(--shadow-md)]
+    shadow-sm
+    hover:shadow-md
   `,
 
   secondary: `
-    bg-[var(--btn-secondary-bg)] 
-    text-[var(--btn-secondary-text)] 
-    border border-[var(--border-primary)]
-    hover:bg-[var(--btn-secondary-bg-hover)] 
-    hover:border-[var(--border-secondary)]
-    focus:ring-0 focus:ring-[var(--brand-primary)]/20
+    bg-secondary
+    text-secondary-foreground
+    border border-primary
+    hover:bg-secondary-hover
+    hover:border-border
+    focus:ring-0 focus:ring-primary/20
     active:scale-95
-    shadow-[var(--shadow-sm)]
+    shadow-sm
   `,
 
   outline: `
     bg-transparent 
-    text-[var(--brand-primary)] 
-    border border-brand-primary
-    hover:bg-[var(--brand-primary)] 
-    hover:text-[var(--text-on-brand)]
-    focus:ring-4 focus:ring-[var(--brand-primary)]/20
+    text-primary
+    border border-primary
+    hover:bg-primary
+    hover:text-primary-foreground
+    focus:ring-4 focus:ring-primary/20
     active:scale-95
   `,
 
   ghost: `
     bg-transparent 
-    text-[var(--text-primary)] 
+    text-primary
     border border-transparent
-    hover:bg-[var(--hover-overlay)]
-    focus:ring-4 focus:ring-[var(--brand-primary)]/20
+    hover:bg-hover-overlay
+    focus:ring-4 focus:ring-primary/20
     active:scale-95
   `,
 
   success: `
-    bg-[var(--color-success)] 
+    bg-success
     text-white 
-    border border-[var(--color-success)]
-    hover:bg-[var(--color-success-light)]
-    hover:border-[var(--color-success-light)]
-    focus:ring-4 focus:ring-[var(--color-success)]/20
+    border border-success
+    hover:bg-success-light
+    hover:border-success-light
+    focus:ring-4 focus:ring-success/20
     active:scale-95
-    shadow-[var(--shadow-sm)]
+    shadow-sm
   `,
 
   warning: `
-    bg-[var(--color-warning)] 
+    bg-warning
     text-white 
-    border border-[var(--color-warning)]
-    hover:bg-[var(--color-warning-light)]
-    hover:border-[var(--color-warning-light)]
-    focus:ring-4 focus:ring-[var(--color-warning)]/20
+    border border-warning
+    hover:bg-warning-light
+    hover:border-warning-light
+    focus:ring-4 focus:ring-warning/20
     active:scale-95
-    shadow-[var(--shadow-sm)]
+    shadow-sm
   `,
 
   error: `
-    bg-[var(--color-error)] 
+    bg-error
     text-white 
-    border border-[var(--color-error)]
-    hover:bg-[var(--color-error-light)]
-    hover:border-[var(--color-error-light)]
-    focus:ring-4 focus:ring-[var(--color-error)]/20
+    border border-error
+    hover:bg-error-light
+    hover:border-error-light
+    focus:ring-4 focus:ring-error/20
     active:scale-95
-    shadow-[var(--shadow-sm)]
+    shadow-sm
   `,
 
   link: `
     bg-transparent 
-    text-[var(--brand-primary)] 
+    text-primary
     border-none
-    hover:text-[var(--brand-primary-hover)]
+    hover:text-primary
     hover:underline underline-offset-4
-    focus:ring-4 focus:ring-[var(--brand-primary)]/20
+    focus:ring-4 focus:ring-primary/20
   `,
 };
 
@@ -212,12 +212,12 @@ const Button = forwardRef(
     // Base classes that apply to all buttons
     const baseClasses = `
     inline-flex items-center justify-center
-    font-medium rounded-[var(--radius-md)]
-    transition-all duration-[var(--transition-base)]
+    font-medium rounded-md
+    transition-all duration-200
     focus:outline-none focus-visible:outline-none
     disabled:opacity-50 disabled:pointer-events-none
     relative overflow-hidden
-    font-[var(--font-family-primary)]
+    font-family
   `;
 
     // Get variant classes
