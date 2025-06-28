@@ -1,10 +1,16 @@
 import { useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import { DropdownItem } from "../../ui/dropdown/DropdownItem";
 import { Dropdown } from "../../ui/dropdown/Dropdown";
 import { Link } from "react-router";
+import { logout } from "../../../store/slices/authSlice";
 
 export default function UserDropdown() {
   const [isOpen, setIsOpen] = useState(false);
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const { user } = useSelector((state) => state.auth);
 
   function toggleDropdown() {
     setIsOpen(!isOpen);
@@ -13,6 +19,13 @@ export default function UserDropdown() {
   function closeDropdown() {
     setIsOpen(false);
   }
+
+  const handleLogout = () => {
+    console.log('[USER DROPDOWN] Logging out user');
+    dispatch(logout());
+    closeDropdown();
+    navigate('/login', { replace: true });
+  };
   return (
     <div className="relative">
       <button
@@ -24,7 +37,7 @@ export default function UserDropdown() {
         </span>
 
         <span className="block mr-1 font-medium text-theme-sm">
-          Manoj Kumar
+          {user?.name || user?.email?.split('@')[0] || 'User'}
         </span>
         <svg
           className={`stroke-foreground transition-transform duration-200 ${
@@ -53,10 +66,10 @@ export default function UserDropdown() {
       >
         <div>
           <span className="block font-medium text-foreground text-theme-sm">
-            Manoj Kumar
+            {user?.name || user?.email?.split('@')[0] || 'User'}
           </span>
           <span className="mt-0.5 block text-theme-xs text-foreground">
-            manojkumarcse432@gmail.com
+            {user?.email || 'user@example.com'}
           </span>
         </div>
 
@@ -136,13 +149,13 @@ export default function UserDropdown() {
             </DropdownItem>
           </li>
         </ul>
-        <Link
-          to="/signin"
+        <button
+          onClick={handleLogout}
           className="flex items-center gap-3 px-3 py-2 mt-3 font-medium text-foreground rounded-lg group text-theme-sm 
-          transition-all duration-300 ease-in-out hover:bg-brand-primary/5 hover:text-brand-primary"
+          transition-all duration-300 ease-in-out hover:bg-red-50 hover:text-red-600 w-full text-left"
         >
           <svg
-            className="fill-foreground group-hover:fill-brand-primary"
+            className="fill-foreground group-hover:fill-red-600"
             width="24"
             height="24"
             viewBox="0 0 24 24"
@@ -157,7 +170,7 @@ export default function UserDropdown() {
             />
           </svg>
           Sign out
-        </Link>
+        </button>
       </Dropdown>
     </div>
   );

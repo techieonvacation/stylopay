@@ -1,0 +1,32 @@
+# StyloPay Frontend Environment Variables
+# Copy this file to .env and fill in your actual values
+
+# API Configuration
+VITE_API_BASE_URL=http://localhost:5000/api
+
+# Application Configuration
+VITE_APP_NAME=StyloPay
+VITE_APP_VERSION=1.0.0
+VITE_APP_DESCRIPTION=Secure Banking Platform
+
+# Security Configuration
+VITE_ENABLE_DEVTOOLS=false
+VITE_SESSION_TIMEOUT=30
+
+# Feature Flags
+VITE_ENABLE_2FA=true
+VITE_ENABLE_BIOMETRIC_AUTH=false
+VITE_ENABLE_CHAT_SUPPORT=true
+
+# External Services
+VITE_SENTRY_DSN=your-sentry-dsn-for-error-tracking
+VITE_ANALYTICS_ID=your-analytics-tracking-id
+
+# Development Settings
+VITE_LOG_LEVEL=info
+VITE_MOCK_API=false
+
+# Banking Features
+VITE_MIN_TRANSFER_AMOUNT=1
+VITE_MAX_TRANSFER_AMOUNT=10000
+VITE_DAILY_TRANSFER_LIMIT=50000 

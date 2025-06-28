@@ -1,13 +1,157 @@
-import { useState } from "react";
-import { Eye, EyeOff, Mail, Lock, Shield, BarChart3 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { useDispatch, useSelector } from "react-redux";
+import { useNavigate, useLocation, Link } from "react-router-dom";
+import { Eye, EyeOff, Mail, Lock, Shield, BarChart3, Loader2 } from "lucide-react";
+import toast from "react-hot-toast";
+
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { Label } from "../ui/Label";
-import { Link } from "react-router";
+
+// Redux
+import { 
+  setLoading, 
+  clearError,
+  selectAuthLoading,
+  selectAuthError,
+  selectIsAuthenticated 
+} from "../../store/slices/authSlice";
+import { useSignupMutation } from "../../store/api/authApi";
 
 export default function SignupForm() {
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [agreeToTerms, setAgreeToTerms] = useState(false);
+
+  // Redux state
+  const isLoading = useSelector(selectAuthLoading);
+  const authError = useSelector(selectAuthError);
+  const isAuthenticated = useSelector(selectIsAuthenticated);
+
+  // API hooks
+  const [signupMutation] = useSignupMutation();
+
+  // Form handling
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    watch,
+    reset,
+  } = useForm({
+    mode: "onBlur",
+    defaultValues: {
+      firstName: "",
+      lastName: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+    },
+  });
+
+  // Watch password to validate confirm password
+  const watchPassword = watch("password");
+
+  // Get device info for security
+  const getDeviceInfo = () => {
+    const userAgent = navigator.userAgent;
+    const platform = navigator.platform;
+    
+    let browser = "Unknown";
+    if (userAgent.includes("Chrome")) browser = "Chrome";
+    else if (userAgent.includes("Firefox")) browser = "Firefox";
+    else if (userAgent.includes("Safari")) browser = "Safari";
+    else if (userAgent.includes("Edge")) browser = "Edge";
+
+    return {
+      browser,
+      os: platform,
+      userAgent: userAgent.substring(0, 200),
+      timestamp: new Date().toISOString(),
+    };
+  };
+
+  // Handle form submission
+  const onSubmit = async (data) => {
+    try {
+      dispatch(setLoading(true));
+      dispatch(clearError());
+
+      const signupData = {
+        firstName: data.firstName.trim(),
+        lastName: data.lastName.trim(),
+        email: data.email.toLowerCase().trim(),
+        password: data.password,
+        confirmPassword: data.confirmPassword,
+        agreeToTerms: agreeToTerms.toString(),
+        deviceInfo: getDeviceInfo(),
+      };
+
+      const result = await signupMutation(signupData).unwrap();
+
+      toast.success("Account created successfully! Please check your email to verify your account.", {
+        duration: 5000,
+      });
+
+      // Redirect to login page after successful signup
+      navigate("/login", { 
+        state: { 
+          from: location.state?.from,
+          signupSuccess: true,
+          message: "Please verify your email before signing in."
+        }
+      });
+
+    } catch (error) {
+      const errorMessage = error.message || error.data?.error || "Signup failed. Please try again.";
+      toast.error(errorMessage, { duration: 5000 });
+      
+      // Clear passwords for security
+      reset({ 
+        ...data, 
+        password: "", 
+        confirmPassword: "" 
+      });
+    } finally {
+      dispatch(setLoading(false));
+    }
+  };
+
+  // Handle form errors
+  const onError = (errors) => {
+    const firstError = Object.values(errors)[0];
+    if (firstError?.message) {
+      toast.error(firstError.message);
+    }
+  };
+
+  // Clear errors when user types
+  useEffect(() => {
+    const subscription = watch(() => {
+      if (authError) {
+        dispatch(clearError());
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [watch, authError, dispatch]);
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      const redirectTo = location.state?.from || "/dashboard";
+      navigate(redirectTo, { replace: true });
+    }
+  }, [isAuthenticated, navigate, location]);
+
+  // Security: Clear form on unmount
+  useEffect(() => {
+    return () => reset();
+  }, [reset]);
 
   return (
     <div className="flex bg-primary rounded-lg overflow-hidden shadow-lg">
@@ -56,7 +200,14 @@ export default function SignupForm() {
               </p>
             </div>
 
-            <form className="space-y-5 relative z-10">
+            {/* Show error message if any */}
+            {authError && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 relative z-10">
+                <p className="text-red-800 text-sm">{authError}</p>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit(onSubmit, onError)} className="space-y-5 relative z-10">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label
@@ -68,9 +219,32 @@ export default function SignupForm() {
                   <Input
                     id="firstName"
                     type="text"
+                    autoComplete="given-name"
                     placeholder="John"
-                    className="h-12 border-2 border-gray-200 focus:border-brand-400 focus:ring-brand-400/20 rounded-xl"
+                    className={`h-12 border-2 ${
+                      errors.firstName 
+                        ? "border-red-400 focus:border-red-400 focus:ring-red-400/20" 
+                        : "border-gray-200 focus:border-brand-400 focus:ring-brand-400/20"
+                    } rounded-xl`}
+                    {...register("firstName", {
+                      required: "First name is required",
+                      minLength: {
+                        value: 2,
+                        message: "First name must be at least 2 characters",
+                      },
+                      maxLength: {
+                        value: 50,
+                        message: "First name must be less than 50 characters",
+                      },
+                      pattern: {
+                        value: /^[a-zA-Z\s'-]+$/,
+                        message: "First name can only contain letters, spaces, hyphens, and apostrophes",
+                      },
+                    })}
                   />
+                  {errors.firstName && (
+                    <p className="text-red-500 text-xs mt-1">{errors.firstName.message}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="lastName" className="text-sm text-foreground">
@@ -79,9 +253,32 @@ export default function SignupForm() {
                   <Input
                     id="lastName"
                     type="text"
+                    autoComplete="family-name"
                     placeholder="Doe"
-                    className="h-12 border-2 border-gray-200 focus:border-brand-400 focus:ring-brand-400/20 rounded-xl"
+                    className={`h-12 border-2 ${
+                      errors.lastName 
+                        ? "border-red-400 focus:border-red-400 focus:ring-red-400/20" 
+                        : "border-gray-200 focus:border-brand-400 focus:ring-brand-400/20"
+                    } rounded-xl`}
+                    {...register("lastName", {
+                      required: "Last name is required",
+                      minLength: {
+                        value: 2,
+                        message: "Last name must be at least 2 characters",
+                      },
+                      maxLength: {
+                        value: 50,
+                        message: "Last name must be less than 50 characters",
+                      },
+                      pattern: {
+                        value: /^[a-zA-Z\s'-]+$/,
+                        message: "Last name can only contain letters, spaces, hyphens, and apostrophes",
+                      },
+                    })}
                   />
+                  {errors.lastName && (
+                    <p className="text-red-500 text-xs mt-1">{errors.lastName.message}</p>
+                  )}
                 </div>
               </div>
 
@@ -94,9 +291,28 @@ export default function SignupForm() {
                   <Input
                     id="email"
                     type="email"
+                    autoComplete="email"
                     placeholder="john@example.com"
-                    className="pl-12 h-12 border-2 border-gray-200 focus:border-brand-400 focus:ring-brand-400/20 rounded-xl"
+                    className={`pl-12 h-12 border-2 ${
+                      errors.email 
+                        ? "border-red-400 focus:border-red-400 focus:ring-red-400/20" 
+                        : "border-gray-200 focus:border-brand-400 focus:ring-brand-400/20"
+                    } rounded-xl`}
+                    {...register("email", {
+                      required: "Email address is required",
+                      pattern: {
+                        value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                        message: "Please enter a valid email address",
+                      },
+                      maxLength: {
+                        value: 100,
+                        message: "Email address is too long",
+                      },
+                    })}
                   />
+                  {errors.email && (
+                    <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>
+                  )}
                 </div>
               </div>
 
@@ -109,8 +325,24 @@ export default function SignupForm() {
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
+                    autoComplete="new-password"
                     placeholder="Create a strong password"
-                    className="pl-12 pr-12 h-12 border-2 border-gray-200 focus:border-brand-400 focus:ring-brand-400/20 rounded-xl"
+                    className={`pl-12 pr-12 h-12 border-2 ${
+                      errors.password 
+                        ? "border-red-400 focus:border-red-400 focus:ring-red-400/20" 
+                        : "border-gray-200 focus:border-brand-400 focus:ring-brand-400/20"
+                    } rounded-xl`}
+                    {...register("password", {
+                      required: "Password is required",
+                      minLength: {
+                        value: 8,
+                        message: "Password must be at least 8 characters",
+                      },
+                      pattern: {
+                        value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/,
+                        message: "Password must contain uppercase, lowercase, number, and special character",
+                      },
+                    })}
                   />
                   <button
                     type="button"
@@ -123,6 +355,9 @@ export default function SignupForm() {
                       <Eye className="h-5 w-5" />
                     )}
                   </button>
+                  {errors.password && (
+                    <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>
+                  )}
                 </div>
               </div>
 
@@ -138,8 +373,18 @@ export default function SignupForm() {
                   <Input
                     id="confirmPassword"
                     type={showConfirmPassword ? "text" : "password"}
+                    autoComplete="new-password"
                     placeholder="Confirm your password"
-                    className="pl-12 pr-12 h-12 border-2 border-gray-200 focus:border-brand-400 focus:ring-brand-400/20 rounded-xl"
+                    className={`pl-12 pr-12 h-12 border-2 ${
+                      errors.confirmPassword 
+                        ? "border-red-400 focus:border-red-400 focus:ring-red-400/20" 
+                        : "border-gray-200 focus:border-brand-400 focus:ring-brand-400/20"
+                    } rounded-xl`}
+                    {...register("confirmPassword", {
+                      required: "Password confirmation is required",
+                      validate: (value) =>
+                        value === watchPassword || "Password confirmation does not match password",
+                    })}
                   />
                   <button
                     type="button"
@@ -152,6 +397,9 @@ export default function SignupForm() {
                       <Eye className="h-5 w-5" />
                     )}
                   </button>
+                  {errors.confirmPassword && (
+                    <p className="text-red-500 text-xs mt-1">{errors.confirmPassword.message}</p>
+                  )}
                 </div>
               </div>
 
@@ -159,6 +407,8 @@ export default function SignupForm() {
                 <input
                   id="terms"
                   type="checkbox"
+                  checked={agreeToTerms}
+                  onChange={(e) => setAgreeToTerms(e.target.checked)}
                   className="h-4 w-4 text-brand-500 focus:ring-brand-500 border-border rounded mt-1"
                 />
                 <Label
@@ -167,28 +417,39 @@ export default function SignupForm() {
                 >
                   I agree to the{" "}
                   <Link
-                    to="#"
+                    to="/terms"
                     className="text-brand-500 hover:text-brand-600 font-medium"
                   >
                     Terms of Service
                   </Link>{" "}
                   and{" "}
                   <Link
-                    to="#"
+                    to="/privacy"
                     className="text-brand-500 hover:text-brand-600 font-medium"
                   >
                     Privacy Policy
                   </Link>
                 </Label>
+                {!agreeToTerms && errors.agreeToTerms && (
+                  <p className="text-red-500 text-xs mt-1">You must agree to the terms of service</p>
+                )}
               </div>
 
               <Button
+                type="submit"
                 variant="default"
                 size="lg"
                 fullWidth
-                rightIcon={<Shield className="size-5" />}
+                disabled={isLoading || isSubmitting || !agreeToTerms}
+                rightIcon={
+                  isLoading || isSubmitting ? (
+                    <Loader2 className="size-5 animate-spin" />
+                  ) : (
+                    <Shield className="size-5" />
+                  )
+                }
               >
-                Create Account
+                {isLoading || isSubmitting ? "Creating Account..." : "Create Account"}
               </Button>
             </form>
 
@@ -201,6 +462,14 @@ export default function SignupForm() {
                 >
                   Sign in
                 </Link>
+              </p>
+            </div>
+
+            {/* Security Notice */}
+            <div className="text-center relative z-10">
+              <p className="text-xs text-muted-foreground">
+                <Shield className="w-3 h-3 inline mr-1" />
+                Your data is protected with bank-grade security
               </p>
             </div>
           </div>

@@ -1,17 +1,37 @@
 {
-  "name": "backend",
+  "name": "stylopay-backend",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "src/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "setup-test-users": "node setup-test-users.js"
   },
-  "keywords": [],
+  "keywords": ["banking", "finance", "authentication", "secure"],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "Secure backend for StyloPay banking application",
   "dependencies": {
+    "express": "^4.18.2",
     "cors": "^2.8.5",
-    "dotenv": "^16.5.0",
-    "express": "^5.1.0"
+    "dotenv": "^16.3.1",
+    "axios": "^1.6.2",
+    "helmet": "^7.1.0",
+    "express-rate-limit": "^7.1.5",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2",
+    "joi": "^17.11.0",
+    "morgan": "^1.10.0",
+    "compression": "^1.7.4",
+    "express-validator": "^7.0.1",
+    "cookie-parser": "^1.4.6",
+    "express-session": "^1.17.3",
+    "connect-redis": "^7.1.0",
+    "redis": "^4.6.10",
+    "mongoose": "^8.0.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
   }
 }

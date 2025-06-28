@@ -47,8 +47,8 @@ const othersItems = [
     icon: <List size={18} />,
     subItems: [ 
       { name: "Live Clients", path: "/", pro: false },
-      { name: "Transactions", path: "/", pro: false },
-      { name: "Transactions", path: "/", pro: false },
+      { name: "Transaction History", path: "/", pro: false },
+      { name: "Transaction Reports", path: "/", pro: false },
     ],
   },
 ];
