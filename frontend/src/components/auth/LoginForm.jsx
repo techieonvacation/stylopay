@@ -2,7 +2,15 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, useLocation, Link } from "react-router-dom";
-import { Eye, EyeOff, Mail, Lock, Shield, TrendingUp, Loader2 } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  Mail,
+  Lock,
+  Shield,
+  TrendingUp,
+  Loader2,
+} from "lucide-react";
 import toast from "react-hot-toast";
 
 import { Button } from "../ui/Button";
@@ -10,14 +18,14 @@ import { Input } from "../ui/Input";
 import { Label } from "../ui/Label";
 
 // Redux
-import { 
+import {
   clearError,
   loginSuccess,
   loginFailure,
   selectAuthLoading,
   selectAuthError,
   selectIsAuthenticated,
-  selectUser 
+  selectUser,
 } from "../../store/slices/authSlice";
 import { useLoginMutation } from "../../store/api/authApi";
 
@@ -57,7 +65,7 @@ export default function LoginForm() {
   const getDeviceInfo = () => {
     const userAgent = navigator.userAgent;
     const platform = navigator.platform;
-    
+
     let browser = "Unknown";
     if (userAgent.includes("Chrome")) browser = "Chrome";
     else if (userAgent.includes("Firefox")) browser = "Firefox";
@@ -82,51 +90,64 @@ export default function LoginForm() {
         deviceInfo: getDeviceInfo(),
       };
 
-      console.log('[LOGIN FORM] Attempting login for:', loginData.email);
+      console.log("[LOGIN FORM] Attempting login for:", loginData.email);
       const result = await loginMutation(loginData).unwrap();
 
-      console.log('[LOGIN FORM] Login successful:', result);
+      console.log("[LOGIN FORM] Login successful:", result);
 
       // Manual Redux state update as backup (in case extraReducers don't work)
-      dispatch(loginSuccess({
-        user: result.user,
-        token: result.token,
-        expiresAt: result.token.expiresAt,
-        rememberMe: rememberMe
-      }));
+      dispatch(
+        loginSuccess({
+          user: result.user,
+          token: result.token,
+          expiresAt: result.token.expiresAt,
+          rememberMe: rememberMe,
+        })
+      );
 
-      console.log('[LOGIN FORM] Manual Redux state update dispatched');
+      console.log("[LOGIN FORM] Manual Redux state update dispatched");
 
       toast.success("Welcome to StyloPay! Login successful.", {
         duration: 3000,
       });
 
       // Check if user is admin and redirect accordingly
-      const isAdmin = result.user?.role === 'admin';
-      const redirectTo = location.state?.from || (isAdmin ? "/admin" : "/dashboard");
-      
-      console.log('[LOGIN FORM] Redirecting to:', redirectTo, '(User role:', result.user?.role, ')');
-      
+      const isAdmin = result.user?.role === "admin";
+      const redirectTo =
+        location.state?.from ||
+        (isAdmin ? "/admin/dashboard" : "/user/dashboard");
+
+      console.log(
+        "[LOGIN FORM] Redirecting to:",
+        redirectTo,
+        "(User role:",
+        result.user?.role,
+        ")"
+      );
+
       // Check Redux state before navigation
-      console.log('[LOGIN FORM] Current Redux auth state before navigation:', {
+      console.log("[LOGIN FORM] Current Redux auth state before navigation:", {
         isAuthenticated,
         user,
-        hasToken: !!(localStorage.getItem('stylopay_token') || sessionStorage.getItem('stylopay_token'))
+        hasToken: !!(
+          localStorage.getItem("stylopay_token") ||
+          sessionStorage.getItem("stylopay_token")
+        ),
       });
 
       // Small delay to ensure Redux state is updated before navigation
       setTimeout(() => {
-        console.log('[LOGIN FORM] Navigating to:', redirectTo);
+        console.log("[LOGIN FORM] Navigating to:", redirectTo);
         navigate(redirectTo, { replace: true });
       }, 200);
-
     } catch (error) {
-      console.error('[LOGIN FORM] Login failed:', error);
-      
+      console.error("[LOGIN FORM] Login failed:", error);
+
       // Note: Redux state will be automatically updated by extraReducers
       // in authSlice when the RTK Query mutation is rejected
-      
-      const errorMessage = error.message || error.data?.error || "Login failed. Please try again.";
+
+      const errorMessage =
+        error.message || error.data?.error || "Login failed. Please try again.";
       toast.error(errorMessage, { duration: 5000 });
       reset({ email: data.email, password: "" });
     }
@@ -154,17 +175,17 @@ export default function LoginForm() {
   useEffect(() => {
     if (isAuthenticated && user) {
       // Role-based redirect for already authenticated users
-      const isAdmin = user.role === 'admin';
-      const defaultRoute = isAdmin ? "/admin" : "/dashboard";
+      const isAdmin = user.role === "admin";
+      const defaultRoute = isAdmin ? "/admin/dashboard" : "/user/dashboard";
       const redirectTo = location.state?.from || defaultRoute;
-      
-      console.log('[LOGIN FORM] Already authenticated, redirecting:', {
+
+      console.log("[LOGIN FORM] Already authenticated, redirecting:", {
         user: user.email,
         role: user.role,
         isAdmin,
-        redirectTo
+        redirectTo,
       });
-      
+
       navigate(redirectTo, { replace: true });
     }
   }, [isAuthenticated, user, navigate, location]);
@@ -228,12 +249,12 @@ export default function LoginForm() {
               </div>
             )}
 
-            <form onSubmit={handleSubmit(onSubmit, onError)} className="space-y-5 relative z-10">
+            <form
+              onSubmit={handleSubmit(onSubmit, onError)}
+              className="space-y-5 relative z-10"
+            >
               <div className="space-y-2">
-                <Label
-                  htmlFor="email"
-                  className="text-sm text-foreground"
-                >
+                <Label htmlFor="email" className="text-sm text-foreground">
                   Email Address
                 </Label>
                 <div className="relative">
@@ -244,8 +265,8 @@ export default function LoginForm() {
                     autoComplete="email"
                     placeholder="Enter your email"
                     className={`pl-12 h-12 border-2 ${
-                      errors.email 
-                        ? "border-red-400 focus:border-red-400 focus:ring-red-400/20" 
+                      errors.email
+                        ? "border-red-400 focus:border-red-400 focus:ring-red-400/20"
                         : "border-gray-200 focus:border-brand-400 focus:ring-brand-400/20"
                     } rounded-xl`}
                     {...register("email", {
@@ -261,16 +282,15 @@ export default function LoginForm() {
                     })}
                   />
                   {errors.email && (
-                    <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.email.message}
+                    </p>
                   )}
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label
-                  htmlFor="password"
-                  className="text-sm text-foreground"
-                >
+                <Label htmlFor="password" className="text-sm text-foreground">
                   Password
                 </Label>
                 <div className="relative">
@@ -281,8 +301,8 @@ export default function LoginForm() {
                     autoComplete="current-password"
                     placeholder="Enter your password"
                     className={`pl-12 pr-12 h-12 border-2 ${
-                      errors.password 
-                        ? "border-red-400 focus:border-red-400 focus:ring-red-400/20" 
+                      errors.password
+                        ? "border-red-400 focus:border-red-400 focus:ring-red-400/20"
                         : "border-gray-200 focus:border-brand-400 focus:ring-brand-400/20"
                     } rounded-xl`}
                     {...register("password", {
@@ -305,7 +325,9 @@ export default function LoginForm() {
                     )}
                   </button>
                   {errors.password && (
-                    <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.password.message}
+                    </p>
                   )}
                 </div>
               </div>
@@ -319,7 +341,9 @@ export default function LoginForm() {
                     onChange={(e) => setRememberMe(e.target.checked)}
                     className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                   />
-                  <Label htmlFor="remember" className="mb-0">Remember me</Label>
+                  <Label htmlFor="remember" className="mb-0">
+                    Remember me
+                  </Label>
                 </div>
                 <Link
                   to="/forgot-password"
