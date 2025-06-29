@@ -1,405 +1,518 @@
 /**
- * User Routes for StyloPay Banking Application
- * Handles user profile and account management operations
+ * User Routes with Zoqq Integration
+ * Handles user management, onboarding, and account lifecycle operations
+ * Includes comprehensive Zoqq API integration for banking compliance
  */
 
-const express = require('express');
-const { body } = require('express-validator');
-const { 
-  authenticateToken, 
-  profileValidationRules, 
-  validate, 
-  sanitizeRequest 
-} = require('../middleware/security');
-const { asyncHandler, AppError } = require('../middleware/errorHandler');
+const express = require("express");
+const { body, param, validationResult } = require("express-validator");
+const User = require("../models/User");
+const zoqqAuthService = require("../services/zoqqAuth");
+const { AppError } = require("../middleware/errorHandler");
+const { authenticateToken } = require("../middleware/security");
 
 const router = express.Router();
+// zoqqAuthService is already instantiated as a singleton
+
+// ========== VALIDATION MIDDLEWARE ==========
 
 /**
- * GET /api/user/profile
- * Get user profile information
+ * Handle validation errors
  */
-router.get('/profile',
-  authenticateToken,
-  asyncHandler(async (req, res) => {
-    const user = req.user;
-    
-    // Log profile access for security audit
-    console.log(`[USER] Profile accessed by user: ${user.userId} from IP: ${req.ip}`);
-
-    // In a real implementation, fetch user data from database
-    // For now, return basic information from token
-    const profileData = {
-      userId: user.userId,
-      email: user.userId, // Assuming userId is email for now
-      authenticatedAt: user.authenticatedAt,
-      tokenType: user.tokenType,
-      lastLoginIp: user.ip,
-      accountStatus: 'active', // This would come from database
-      // Add other non-sensitive profile data here
-    };
-
-    res.status(200).json({
-      success: true,
-      profile: profileData,
-      timestamp: new Date().toISOString()
+const handleValidationErrors = (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      status: "error",
+      message: "Validation failed",
+      errors: errors.array(),
+      code: "VALIDATION_ERROR"
     });
-  })
-);
+  }
+  next();
+};
 
 /**
- * PUT /api/user/profile
- * Update user profile information
+ * Extract Zoqq token from user's JWT
  */
-router.put('/profile',
-  authenticateToken,
-  sanitizeRequest,
+const extractZoqqToken = (req, res, next) => {
+  try {
+    const userToken = req.user;
+    if (!userToken || !userToken.zoqqToken) {
+      return res.status(401).json({
+        status: "error",
+        message: "Zoqq authentication required. Please login again.",
+        code: "ZOQQ_TOKEN_MISSING"
+      });
+    }
+    
+    req.zoqqToken = userToken.zoqqToken;
+    req.userId = userToken.userId;
+    next();
+  } catch (error) {
+    console.error('[USER ROUTES] Error extracting Zoqq token:', error);
+    return res.status(401).json({
+      status: "error",
+      message: "Invalid authentication token",
+      code: "INVALID_TOKEN"
+    });
+  }
+};
+
+// ========== ZOQQ USER MANAGEMENT ROUTES ==========
+
+/**
+ * CREATE USER - Zoqq Onboarding
+ * POST /api/user/zoqq/create
+ * Creates a new user account in Zoqq system with comprehensive business and personal details
+ */
+router.post("/zoqq/create", 
+  authenticateToken, 
+  extractZoqqToken,
   [
-    body('firstName')
-      .optional()
-      .isLength({ min: 1, max: 50 })
-      .matches(/^[a-zA-Z\s'-]+$/)
-      .withMessage('First name contains invalid characters'),
+    // Business Information Validation
+    body("emailId").isEmail().normalizeEmail().withMessage("Valid email is required"),
+    body("amount").isNumeric().withMessage("Amount must be numeric"),
+    body("currency").isLength({ min: 3, max: 3 }).withMessage("Currency must be 3 letter code"),
+    body("businessName").isLength({ min: 2, max: 100 }).withMessage("Business name required (2-100 characters)"),
+    body("businessStructure").isIn(['COMPANY', 'PARTNERSHIP', 'SOLE_PROPRIETORSHIP', 'TRUST', 'OTHER']).withMessage("Valid business structure required"),
+    body("contactNumber").isMobilePhone().withMessage("Valid contact number required"),
     
-    body('lastName')
-      .optional()
-      .isLength({ min: 1, max: 50 })
-      .matches(/^[a-zA-Z\s'-]+$/)
-      .withMessage('Last name contains invalid characters'),
+    // Personal Information Validation
+    body("firstName").isLength({ min: 1, max: 50 }).withMessage("First name required (1-50 characters)"),
+    body("lastName").isLength({ min: 1, max: 50 }).withMessage("Last name required (1-50 characters)"),
+    body("middleName").optional().isLength({ max: 50 }).withMessage("Middle name max 50 characters"),
+    body("dateOfBirth").isISO8601().withMessage("Valid date of birth required (YYYY-MM-DD)"),
+    body("nationality").isLength({ min: 2, max: 2 }).withMessage("Nationality must be 2 letter country code"),
+    body("mobile").isMobilePhone().withMessage("Valid mobile number required"),
     
-    body('phone')
-      .optional()
-      .matches(/^\+?[\d\s-()]{10,15}$/)
-      .withMessage('Invalid phone number format'),
-      
-    body('dateOfBirth')
-      .optional()
-      .isDate()
-      .withMessage('Invalid date of birth format'),
-      
-    body('address')
-      .optional()
-      .isObject()
-      .withMessage('Address must be an object'),
-      
-    body('address.street')
-      .optional()
-      .isLength({ max: 200 })
-      .withMessage('Street address too long'),
-      
-    body('address.city')
-      .optional()
-      .isLength({ max: 100 })
-      .withMessage('City name too long'),
-      
-    body('address.state')
-      .optional()
-      .isLength({ max: 100 })
-      .withMessage('State name too long'),
-      
-    body('address.zipCode')
-      .optional()
-      .matches(/^[\d\s-]{3,10}$/)
-      .withMessage('Invalid zip code format'),
-      
-    body('address.country')
-      .optional()
-      .isLength({ max: 100 })
-      .withMessage('Country name too long'),
+    // Identity Document Validation
+    body("identificationType").isIn(['Passport', 'National_ID', 'Driving_License']).withMessage("Valid identification type required"),
+    body("Idnumber").isLength({ min: 5, max: 20 }).withMessage("ID number required (5-20 characters)"),
+    body("issuingCountryCode").isLength({ min: 2, max: 2 }).withMessage("Valid issuing country code required"),
+    body("effectiveAt").isISO8601().withMessage("Valid effective date required (YYYY-MM-DD)"),
+    body("expireAt").isISO8601().withMessage("Valid expiry date required (YYYY-MM-DD)"),
+    
+    // Legal and Compliance Validation
+    body("roles").isIn(['BENEFICIAL_OWNER', 'DIRECTOR', 'SIGNATORY', 'OTHER']).withMessage("Valid role required"),
+    body("legalEntityType").isIn(['BUSINESS', 'INDIVIDUAL']).withMessage("Valid legal entity type required"),
+    body("asTrustee").isBoolean().withMessage("asTrustee must be boolean"),
+    body("agreedToTermsAndConditions").isBoolean().withMessage("Terms and conditions agreement required"),
+    body("productReference").isIn([
+      'ACCEPT_ONLINE_PAYMENTS', 'COLLECT_MARKETPLACE_PROCEEDS', 'RECEIVE_TRANSFERS',
+      'GET_PAID', 'CONVERT_FUNDS', 'MAKE_TRANSFERS', 'CREATE_CARDS', 'MANAGE_EXPENSES',
+      'USE_AWX_API', 'TRANSFER_CNY_INBOUND'
+    ]).withMessage("Valid product reference required"),
+    
+    // Business Registration Validation
+    body("type").isLength({ min: 1, max: 20 }).withMessage("Registration type required"),
+    body("number").isLength({ min: 5, max: 20 }).withMessage("Registration number required"),
+    body("descriptionOfGoodsOrServices").isLength({ min: 10, max: 500 }).withMessage("Description required (10-500 characters)"),
+    body("industryCategoryCode").matches(/^ICCV3_[A-Z0-9]+$/).withMessage("Valid industry category code required"),
+    body("operatingCountry").isLength({ min: 2, max: 2 }).withMessage("Valid operating country code required"),
+    
+    // Address Validation
+    body("registrationAddressLine1").isLength({ min: 5, max: 100 }).withMessage("Registration address line 1 required"),
+    body("registrationAddressLine2").optional().isLength({ max: 100 }).withMessage("Registration address line 2 max 100 characters"),
+    body("registrationCountryCode").isLength({ min: 2, max: 2 }).withMessage("Valid registration country code required"),
+    body("registrationPostcode").isLength({ min: 3, max: 10 }).withMessage("Valid registration postcode required"),
+    body("registrationState").isLength({ min: 2, max: 50 }).withMessage("Registration state required"),
+    body("registrationSuburb").isLength({ min: 2, max: 50 }).withMessage("Registration suburb required"),
+    
+    body("residentialAddressLine1").isLength({ min: 5, max: 100 }).withMessage("Residential address line 1 required"),
+    body("residentialCountryCode").isLength({ min: 2, max: 2 }).withMessage("Valid residential country code required"),
+    body("residentialPostcode").isLength({ min: 3, max: 10 }).withMessage("Valid residential postcode required"),
+    body("residentialState").isLength({ min: 2, max: 50 }).withMessage("Residential state required"),
+    body("residentialSuburb").isLength({ min: 2, max: 50 }).withMessage("Residential suburb required"),
+    
+    // Document File Validation
+    body("fileId").isLength({ min: 10 }).withMessage("Business document file ID required"),
+    body("tag").isIn([
+      'ACRA_COMPANY_PROFILE_DOCUMENT', 'ANNUAL_REPORT', 'ANNUAL_RETURN', 'ARTICLES_OF_ASSOCIATION',
+      'ASIC_CURRENT_COMPANY_EXTRACT', 'ASSUMED_NAME_CERTIFICATE', 'BUSINESS_LICENSE',
+      'CERTIFICATE_OF_INCORPORATION', 'CERTIFICATION_REGISTRATION', 'COMPANY_CERTIFICATE',
+      'COMPANY_CONSTITUTION', 'COMPANY_PROFILE', 'CONFIRMATION_STATEMENT', 'DIRECTOR_LIST',
+      'LEGAL_NAME_AND_ADDRESS', 'OPERATING_AGREEMENT', 'PARTNERSHIP_AGREEMENT',
+      'REGISTRATION_CERTIFICATE', 'SHAREHOLDING_STRUCTURE_CHART', 'SUPPORTIVE_OTHER',
+      'TRUST_DEED', 'UNIT_HOLDER_REGISTER', 'UBO_SUPPORTIVE', 'THIRD_PARTY_SHAREHOLDING_DOCUMENT'
+    ]).withMessage("Valid business document tag required"),
+    
+    body("frontFileId").isLength({ min: 10 }).withMessage("ID document front file ID required"),
+    body("personDocumentsFileId").isLength({ min: 10 }).withMessage("Person documents file ID required"),
+    body("personDocumentsTag").isLength({ min: 1 }).withMessage("Person documents tag required"),
+    body("liveSelfieFileId").isLength({ min: 10 }).withMessage("Live selfie file ID required"),
+    body("countryCode").isLength({ min: 2, max: 2 }).withMessage("Valid country code required"),
   ],
-  validate,
-  asyncHandler(async (req, res) => {
-    const user = req.user;
-    const updateData = req.body;
-    
-    console.log(`[USER] Profile update request from user: ${user.userId}`);
-
-    // In a real implementation, update user data in database
-    // Validate business rules, check permissions, etc.
-    
-    // TODO: Implement actual profile update logic
-    // const updatedProfile = await UserService.updateProfile(user.userId, updateData);
-
-    // Log profile update for security audit
-    console.log(`[USER] Profile updated for user: ${user.userId} - Fields: ${Object.keys(updateData).join(', ')}`);
-
-    res.status(200).json({
-      success: true,
-      message: 'Profile updated successfully',
-      updatedFields: Object.keys(updateData),
-      timestamp: new Date().toISOString()
-    });
-  })
-);
-
-/**
- * GET /api/user/account-status
- * Get account status and security information
- */
-router.get('/account-status',
-  authenticateToken,
-  asyncHandler(async (req, res) => {
-    const user = req.user;
-    
-    // In a real implementation, fetch from database
-    const accountStatus = {
-      accountId: `acc_${user.userId.replace('@', '_').replace('.', '_')}`,
-      status: 'active',
-      verificationLevel: 'verified', // basic, verified, premium
-      securityLevel: 'high',
-      twoFactorEnabled: false, // This would be from database
-      lastPasswordChange: '2024-01-15T10:30:00Z', // From database
-      accountCreated: '2023-06-01T00:00:00Z', // From database
-      lastLoginAt: user.authenticatedAt,
-      loginCount: 1, // From database
-      features: {
-        transfers: true,
-        billPay: true,
-        mobileDeposit: true,
-        wireTransfers: false // Based on verification level
+  handleValidationErrors,
+  async (req, res) => {
+    try {
+      console.log(`[USER CREATE] Creating Zoqq user for: ${req.body.emailId}`);
+      
+      // Check if user already exists in local database
+      const existingUser = await User.findOne({ email: req.body.emailId.toLowerCase() });
+      if (existingUser && existingUser.zoqqAccountId) {
+        return res.status(409).json({
+          status: "error",
+          message: "User already has a Zoqq account",
+          code: "USER_EXISTS",
+          data: { accountId: existingUser.zoqqAccountId }
+        });
       }
-    };
 
-    res.status(200).json({
-      success: true,
-      accountStatus: accountStatus,
-      timestamp: new Date().toISOString()
-    });
-  })
-);
-
-/**
- * POST /api/user/change-password
- * Change user password
- */
-router.post('/change-password',
-  authenticateToken,
-  sanitizeRequest,
-  [
-    body('currentPassword')
-      .notEmpty()
-      .withMessage('Current password is required'),
-    
-    body('newPassword')
-      .isLength({ min: 12, max: 128 })
-      .withMessage('New password must be between 12 and 128 characters')
-      .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
-      .withMessage('New password must contain uppercase, lowercase, number, and special character'),
-    
-    body('confirmPassword')
-      .custom((value, { req }) => {
-        if (value !== req.body.newPassword) {
-          throw new Error('Password confirmation does not match');
+      // Create user in Zoqq system
+      const result = await zoqqAuthService.createUser(req.body, req.zoqqToken);
+      
+      if (result.success) {
+        // Update local user record with Zoqq account ID
+        if (existingUser) {
+          existingUser.zoqqAccountId = result.accountId;
+          existingUser.accountStatus = 'zoqq_created';
+          await existingUser.save();
         }
-        return true;
-      })
-  ],
-  validate,
-  asyncHandler(async (req, res) => {
-    const user = req.user;
-    const { currentPassword, newPassword } = req.body;
-    
-    console.log(`[USER] Password change request from user: ${user.userId}`);
 
-    // In a real implementation:
-    // 1. Verify current password against database
-    // 2. Hash new password
-    // 3. Update password in database
-    // 4. Invalidate all existing sessions except current one
-    // 5. Send notification email
-    
-    // TODO: Implement actual password change logic
-    // const user = await UserService.validatePassword(user.userId, currentPassword);
-    // if (!user) {
-    //   throw new AppError('Current password is incorrect', 400, 'INVALID_CURRENT_PASSWORD');
-    // }
-    // await UserService.updatePassword(user.userId, newPassword);
-
-    console.log(`[USER] Password changed successfully for user: ${user.userId}`);
-
-    res.status(200).json({
-      success: true,
-      message: 'Password changed successfully',
-      timestamp: new Date().toISOString(),
-      recommendation: 'Please log in again with your new password'
-    });
-  })
-);
-
-/**
- * GET /api/user/session-info
- * Get current session information
- */
-router.get('/session-info',
-  authenticateToken,
-  asyncHandler(async (req, res) => {
-    const user = req.user;
-    const userAgent = req.get('User-Agent');
-    const userIp = req.ip || req.connection.remoteAddress;
-    
-    const sessionInfo = {
-      sessionId: `session_${Date.now()}`, // In real app, generate proper session ID
-      userId: user.userId,
-      authenticatedAt: user.authenticatedAt,
-      expiresAt: user.zoqqExpiresAt,
-      ipAddress: userIp,
-      userAgent: userAgent ? userAgent.substring(0, 200) : 'Unknown',
-      tokenType: user.tokenType,
-      validFor: Math.floor((new Date(user.zoqqExpiresAt) - new Date()) / 1000),
-      location: {
-        // In real app, you might use IP geolocation service
-        ip: userIp,
-        estimated: 'Location data not available'
+        console.log(`[USER CREATE] Zoqq user created successfully: ${result.accountId}`);
+        
+        res.status(201).json({
+          status: "success",
+          message: "User account created successfully in Zoqq system",
+          code: "USER_CREATED",
+          data: {
+            accountId: result.accountId,
+            status: result.status,
+            message: result.message
+          }
+        });
+      } else {
+        throw new AppError("Failed to create user in Zoqq system", 400, "ZOQQ_CREATE_FAILED");
       }
-    };
-
-    res.status(200).json({
-      success: true,
-      session: sessionInfo,
-      timestamp: new Date().toISOString()
-    });
-  })
+    } catch (error) {
+      console.error(`[USER CREATE] Error creating Zoqq user:`, error);
+      
+      res.status(error.statusCode || 500).json({
+        status: "error",
+        message: error.message || "Failed to create user account",
+        code: error.code || "USER_CREATE_ERROR"
+      });
+    }
+  }
 );
 
 /**
- * GET /api/user/security-events
- * Get recent security events for the account
+ * GET USER - Retrieve Zoqq User Details
+ * GET /api/user/zoqq/details/:userId
+ * Retrieves comprehensive user details from Zoqq system
  */
-router.get('/security-events',
+router.get("/zoqq/details/:userId",
   authenticateToken,
-  asyncHandler(async (req, res) => {
-    const user = req.user;
-    
-    // In a real implementation, fetch from security audit log
-    const securityEvents = [
-      {
-        eventId: 'evt_001',
-        type: 'login',
-        timestamp: user.authenticatedAt,
-        ip: user.ip,
-        status: 'success',
-        userAgent: req.get('User-Agent')?.substring(0, 100) || 'Unknown'
-      }
-      // Add more events from database
-    ];
-
-    res.status(200).json({
-      success: true,
-      events: securityEvents,
-      total: securityEvents.length,
-      timestamp: new Date().toISOString()
-    });
-  })
-);
-
-/**
- * POST /api/user/logout-all-sessions
- * Logout from all sessions (security feature)
- */
-router.post('/logout-all-sessions',
-  authenticateToken,
-  asyncHandler(async (req, res) => {
-    const user = req.user;
-    
-    console.log(`[USER] Logout all sessions requested by user: ${user.userId}`);
-
-    // In a real implementation:
-    // 1. Add all user tokens to blacklist
-    // 2. Clear all sessions from session store
-    // 3. Send notification email about security action
-    
-    // TODO: Implement actual session invalidation
-    // await SessionService.invalidateAllUserSessions(user.userId);
-
-    console.log(`[USER] All sessions invalidated for user: ${user.userId}`);
-
-    res.status(200).json({
-      success: true,
-      message: 'All sessions have been logged out',
-      action: 'logout_all_sessions',
-      timestamp: new Date().toISOString()
-    });
-  })
-);
-
-/**
- * GET /api/user/preferences
- * Get user preferences and settings
- */
-router.get('/preferences',
-  authenticateToken,
-  asyncHandler(async (req, res) => {
-    const user = req.user;
-    
-    // In a real implementation, fetch from database
-    const preferences = {
-      notifications: {
-        email: true,
-        sms: false,
-        push: true,
-        marketing: false
-      },
-      security: {
-        twoFactorEnabled: false,
-        sessionTimeout: 30, // minutes
-        loginNotifications: true
-      },
-      display: {
-        theme: 'light',
-        currency: 'USD',
-        language: 'en',
-        timezone: 'UTC'
-      }
-    };
-
-    res.status(200).json({
-      success: true,
-      preferences: preferences,
-      timestamp: new Date().toISOString()
-    });
-  })
-);
-
-/**
- * PUT /api/user/preferences
- * Update user preferences
- */
-router.put('/preferences',
-  authenticateToken,
-  sanitizeRequest,
+  extractZoqqToken,
   [
-    body('notifications')
-      .optional()
-      .isObject()
-      .withMessage('Notifications must be an object'),
-    
-    body('security')
-      .optional()
-      .isObject()
-      .withMessage('Security settings must be an object'),
-    
-    body('display')
-      .optional()
-      .isObject()
-      .withMessage('Display settings must be an object')
+    param("userId").isLength({ min: 1 }).withMessage("Valid user ID required")
   ],
-  validate,
-  asyncHandler(async (req, res) => {
-    const user = req.user;
-    const preferences = req.body;
-    
-    console.log(`[USER] Preferences update from user: ${user.userId}`);
+  handleValidationErrors,
+  async (req, res) => {
+    try {
+      const { userId } = req.params;
+      console.log(`[USER GET] Retrieving Zoqq user details for: ${userId}`);
 
-    // In a real implementation, update in database with validation
-    // TODO: Implement actual preferences update
-    // await UserService.updatePreferences(user.userId, preferences);
+      const result = await zoqqAuthService.getUser(userId, req.zoqqToken);
+      
+      if (result.success) {
+        console.log(`[USER GET] User details retrieved successfully for: ${userId}`);
+        
+        res.status(200).json({
+          status: "success",
+          message: "User details retrieved successfully",
+          code: "USER_RETRIEVED",
+          data: result.userData
+        });
+      } else {
+        throw new AppError("Failed to retrieve user details", 400, "ZOQQ_GET_FAILED");
+      }
+    } catch (error) {
+      console.error(`[USER GET] Error retrieving user details:`, error);
+      
+      res.status(error.statusCode || 500).json({
+        status: "error",
+        message: error.message || "Failed to retrieve user details",
+        code: error.code || "USER_GET_ERROR"
+      });
+    }
+  }
+);
+
+/**
+ * ACCEPT TERMS AND CONDITIONS
+ * POST /api/user/zoqq/terms/:userId
+ * Accepts terms and conditions for a user
+ */
+router.post("/zoqq/terms/:userId",
+  authenticateToken,
+  extractZoqqToken,
+  [
+    param("userId").isLength({ min: 1 }).withMessage("Valid user ID required")
+  ],
+  handleValidationErrors,
+  async (req, res) => {
+    try {
+      const { userId } = req.params;
+      console.log(`[USER TERMS] Accepting terms for user: ${userId}`);
+
+      const result = await zoqqAuthService.acceptTermsAndConditions(userId, req.zoqqToken);
+      
+      if (result.success) {
+        // Update local user record
+        const user = await User.findOne({ zoqqAccountId: userId });
+        if (user) {
+          user.termsAcceptedAt = new Date();
+          user.accountStatus = 'terms_accepted';
+          await user.save();
+        }
+
+        console.log(`[USER TERMS] Terms accepted successfully for: ${userId}`);
+        
+        res.status(200).json({
+          status: "success",
+          message: result.message || "Terms and conditions accepted successfully",
+          code: "TERMS_ACCEPTED"
+        });
+      } else {
+        throw new AppError("Failed to accept terms and conditions", 400, "TERMS_ACCEPT_FAILED");
+      }
+    } catch (error) {
+      console.error(`[USER TERMS] Error accepting terms:`, error);
+      
+      res.status(error.statusCode || 500).json({
+        status: "error",
+        message: error.message || "Failed to accept terms and conditions",
+        code: error.code || "TERMS_ACCEPT_ERROR"
+      });
+    }
+  }
+);
+
+/**
+ * ACTIVATE ACCOUNT
+ * POST /api/user/zoqq/activate/:userId
+ * Activates a user account in Zoqq system
+ */
+router.post("/zoqq/activate/:userId",
+  authenticateToken,
+  extractZoqqToken,
+  [
+    param("userId").isLength({ min: 1 }).withMessage("Valid user ID required")
+  ],
+  handleValidationErrors,
+  async (req, res) => {
+    try {
+      const { userId } = req.params;
+      console.log(`[USER ACTIVATE] Activating account for user: ${userId}`);
+
+      const result = await zoqqAuthService.activateAccount(userId, req.zoqqToken);
+      
+      if (result.success) {
+        // Update local user record
+        const user = await User.findOne({ zoqqAccountId: userId });
+        if (user) {
+          user.accountStatus = 'active';
+          user.isVerified = true;
+          user.activatedAt = new Date();
+          await user.save();
+        }
+
+        console.log(`[USER ACTIVATE] Account activated successfully for: ${userId}`);
+        
+        res.status(200).json({
+          status: "success",
+          message: result.message || "Account activated successfully",
+          code: "ACCOUNT_ACTIVATED"
+        });
+      } else {
+        throw new AppError("Failed to activate account", 400, "ACCOUNT_ACTIVATE_FAILED");
+      }
+    } catch (error) {
+      console.error(`[USER ACTIVATE] Error activating account:`, error);
+      
+      res.status(error.statusCode || 500).json({
+        status: "error",
+        message: error.message || "Failed to activate account",
+        code: error.code || "ACCOUNT_ACTIVATE_ERROR"
+      });
+    }
+  }
+);
+
+// ========== RFI (Request for Information) ROUTES ==========
+
+/**
+ * GET RFI DETAILS
+ * GET /api/user/zoqq/rfi/:userId
+ * Retrieves RFI (Request for Information) details for a user
+ */
+router.get("/zoqq/rfi/:userId",
+  authenticateToken,
+  extractZoqqToken,
+  [
+    param("userId").isLength({ min: 1 }).withMessage("Valid user ID required")
+  ],
+  handleValidationErrors,
+  async (req, res) => {
+    try {
+      const { userId } = req.params;
+      console.log(`[USER RFI] Retrieving RFI details for user: ${userId}`);
+
+      const result = await zoqqAuthService.getRFI(userId, req.zoqqToken);
+      
+      if (result.success) {
+        console.log(`[USER RFI] RFI details retrieved successfully for: ${userId}`);
+        
+        res.status(200).json({
+          status: "success",
+          message: "RFI details retrieved successfully",
+          code: "RFI_RETRIEVED",
+          data: result.rfiData
+        });
+      } else {
+        throw new AppError("Failed to retrieve RFI details", 400, "RFI_GET_FAILED");
+      }
+    } catch (error) {
+      console.error(`[USER RFI] Error retrieving RFI details:`, error);
+      
+      res.status(error.statusCode || 500).json({
+        status: "error",
+        message: error.message || "Failed to retrieve RFI details",
+        code: error.code || "RFI_GET_ERROR"
+      });
+    }
+  }
+);
+
+/**
+ * RESPOND TO RFI
+ * POST /api/user/zoqq/rfi/:userId
+ * Submits a response to an RFI request
+ */
+router.post("/zoqq/rfi/:userId",
+  authenticateToken,
+  extractZoqqToken,
+  [
+    param("userId").isLength({ min: 1 }).withMessage("Valid user ID required"),
+    body("id").isLength({ min: 1 }).withMessage("RFI question ID required"),
+    body("type").isIn(['ADDRESS', 'DOCUMENT', 'TEXT']).withMessage("Valid response type required"),
+    
+    // Conditional validation based on type
+    body("address_line1").if(body("type").equals("ADDRESS")).isLength({ min: 5, max: 100 }).withMessage("Address line 1 required for ADDRESS type"),
+    body("country_code").if(body("type").equals("ADDRESS")).isLength({ min: 2, max: 2 }).withMessage("Country code required for ADDRESS type"),
+    body("postcode").if(body("type").equals("ADDRESS")).isLength({ min: 3, max: 10 }).withMessage("Postcode required for ADDRESS type"),
+    body("state").if(body("type").equals("ADDRESS")).isLength({ min: 2, max: 50 }).withMessage("State required for ADDRESS type"),
+    body("suburb").if(body("type").equals("ADDRESS")).isLength({ min: 2, max: 50 }).withMessage("Suburb required for ADDRESS type"),
+    
+    body("attachments").optional().isArray().withMessage("Attachments must be an array")
+  ],
+  handleValidationErrors,
+  async (req, res) => {
+    try {
+      const { userId } = req.params;
+      console.log(`[USER RFI] Responding to RFI for user: ${userId}`);
+
+      const result = await zoqqAuthService.respondToRFI(userId, req.body, req.zoqqToken);
+      
+      if (result.success) {
+        console.log(`[USER RFI] RFI response submitted successfully for: ${userId}`);
+        
+        res.status(200).json({
+          status: "success",
+          message: result.message || "RFI response submitted successfully",
+          code: "RFI_RESPONSE_SUBMITTED",
+          data: result.data
+        });
+      } else {
+        throw new AppError("Failed to submit RFI response", 400, "RFI_RESPONSE_FAILED");
+      }
+    } catch (error) {
+      console.error(`[USER RFI] Error submitting RFI response:`, error);
+      
+      res.status(error.statusCode || 500).json({
+        status: "error",
+        message: error.message || "Failed to submit RFI response",
+        code: error.code || "RFI_RESPONSE_ERROR"
+      });
+    }
+  }
+);
+
+// ========== EXISTING USER ROUTES (ENHANCED) ==========
+
+/**
+ * GET USER PROFILE - Enhanced with Zoqq Integration
+ * GET /api/user/profile
+ * Retrieves user profile with Zoqq account status
+ */
+router.get("/profile", authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId).select("-password");
+    
+    if (!user) {
+      return res.status(404).json({
+        status: "error",
+        message: "User not found",
+        code: "USER_NOT_FOUND"
+      });
+    }
+
+    // Include Zoqq status in response
+    const userProfile = {
+      id: user._id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      fullName: user.fullName,
+      accountStatus: user.accountStatus,
+      isVerified: user.isVerified,
+      profileCompleteness: user.profileCompleteness,
+      zoqqAccountId: user.zoqqAccountId,
+      hasZoqqAccount: !!user.zoqqAccountId,
+      termsAcceptedAt: user.termsAcceptedAt,
+      activatedAt: user.activatedAt,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt
+    };
 
     res.status(200).json({
-      success: true,
-      message: 'Preferences updated successfully',
-      timestamp: new Date().toISOString()
+      status: "success",
+      message: "User profile retrieved successfully",
+      code: "PROFILE_RETRIEVED",
+      data: { user: userProfile }
     });
-  })
-);
+  } catch (error) {
+    console.error("[USER PROFILE] Error retrieving profile:", error);
+    
+    res.status(500).json({
+      status: "error",
+      message: "Failed to retrieve user profile",
+      code: "PROFILE_GET_ERROR"
+    });
+  }
+});
+
+/**
+ * Error handling middleware for this router
+ */
+router.use((error, req, res, next) => {
+  console.error('[USER ROUTES] Unhandled error:', error);
+  
+  if (error instanceof AppError) {
+    return res.status(error.statusCode).json({
+      status: "error",
+      message: error.message,
+      code: error.code
+    });
+  }
+  
+  res.status(500).json({
+    status: "error",
+    message: "Internal server error",
+    code: "INTERNAL_ERROR"
+  });
+});
 
 module.exports = router; 

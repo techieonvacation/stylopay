@@ -1,7 +1,7 @@
 /**
- * Zoqq Authentication Service
+ * Zoqq Authentication and User Management Service
  * Handles authentication with the Zoqq API for banking/finance operations
- * Implements secure token management and API communication
+ * Implements secure token management and comprehensive user lifecycle management
  */
 
 const axios = require("axios");
@@ -16,6 +16,7 @@ class ZoqqAuthService {
     this.baseUrl = process.env.ZOQQ_BASE_URL || "https://api.zoqq.com";
     this.clientId = process.env.ZOQQ_CLIENT_ID;
     this.apiKey = process.env.ZOQQ_API_KEY;
+    this.programId = process.env.ZOQQ_PROGRAM_ID;
     this.jwtSecret = process.env.JWT_SECRET || 'stylopay-default-secret-key-change-in-production';
 
     // Check if Zoqq integration is enabled
@@ -59,6 +60,7 @@ class ZoqqAuthService {
           .substr(2, 9)}`;
         config.headers["x-request-id"] = requestId;
 
+        // Log request (excluding sensitive data)
         console.log(
           `[ZOQQ API] ${config.method.toUpperCase()} ${
             config.url
@@ -90,6 +92,491 @@ class ZoqqAuthService {
       }
     );
   }
+
+  /**
+   * Generate a unique idempotency key for API requests
+   * @returns {string} Unique request ID
+   */
+  generateIdempotencyKey() {
+    return `stylopay_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  // ========== AUTHENTICATION APIs ==========
+
+  /**
+   * Authenticate with Zoqq API and get access token
+   * Endpoint: POST {{baseUrl}}/api/v1/authentication/login
+   * @returns {Promise<Object>} Authentication result with token and expiration
+   */
+  async getZoqqToken() {
+    if (!this.zoqqEnabled) {
+      throw new AppError('Zoqq integration is not enabled', 400, 'ZOQQ_DISABLED');
+    }
+
+    try {
+      console.log('[ZOQQ AUTH] Requesting authentication token...');
+      
+      const startTime = Date.now();
+      const response = await this.axiosInstance.post('/api/v1/authentication/login', {}, {
+        headers: {
+          'x-client-id': this.clientId,
+          'x-api-key': this.apiKey,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const endTime = Date.now();
+      console.log(`[ZOQQ AUTH] Token request completed in ${endTime - startTime}ms`);
+
+      if (response.status === 200 && response.data.token) {
+        console.log('[ZOQQ AUTH] Authentication successful');
+        return {
+          token: response.data.token,
+          expires_at: response.data.expires_at,
+          success: true
+        };
+      } else {
+        throw new AppError('Invalid authentication response from Zoqq', 401, 'ZOQQ_AUTH_INVALID');
+      }
+    } catch (error) {
+      console.error('[ZOQQ AUTH] Authentication failed:', error.message);
+      
+      if (error.response) {
+        const status = error.response.status;
+        const message = error.response.data?.message || 'Authentication failed';
+        
+        if (status === 401) {
+          throw new AppError('Invalid Zoqq credentials', 401, 'ZOQQ_AUTH_INVALID');
+        } else if (status === 403) {
+          throw new AppError('Zoqq access forbidden', 403, 'ZOQQ_AUTH_FORBIDDEN');
+        } else {
+          throw new AppError(`Zoqq authentication error: ${message}`, status, 'ZOQQ_AUTH_ERROR');
+        }
+      }
+      
+      throw error instanceof AppError ? error : new AppError(
+        'Zoqq authentication service unavailable',
+        503,
+        'ZOQQ_SERVICE_UNAVAILABLE'
+      );
+    }
+  }
+
+  // ========== USER MANAGEMENT APIs ==========
+
+  /**
+   * Create a new user account with business and personal details
+   * Endpoint: POST {{baseUrl}}/zoqq/api/v1/user
+   * @param {Object} userDetails - Complete user data as per Zoqq requirements
+   * @param {string} bearerToken - Valid bearer token from authentication
+   * @returns {Promise<Object>} User creation result with account ID
+   */
+  async createUser(userDetails, bearerToken) {
+    if (!this.zoqqEnabled) {
+      throw new AppError('Zoqq integration is not enabled', 400, 'ZOQQ_DISABLED');
+    }
+
+    try {
+      console.log('[ZOQQ USER] Creating new user account...');
+      
+      const idempotencyKey = this.generateIdempotencyKey();
+      const startTime = Date.now();
+
+      // Validate required fields according to Zoqq documentation
+      const requiredFields = [
+        'emailId', 'amount', 'currency', 'businessName', 'businessStructure',
+        'contactNumber', 'identificationType', 'Idnumber', 'issuingCountryCode',
+        'effectiveAt', 'expireAt', 'firstName', 'lastName', 'dateOfBirth',
+        'nationality', 'mobile', 'roles', 'legalEntityType', 'asTrustee',
+        'agreedToTermsAndConditions', 'productReference', 'type', 'number',
+        'descriptionOfGoodsOrServices', 'industryCategoryCode', 'operatingCountry',
+        'registrationAddressLine1', 'registrationCountryCode', 'registrationPostcode',
+        'registrationState', 'registrationSuburb', 'residentialAddressLine1',
+        'residentialCountryCode', 'residentialPostcode', 'residentialState',
+        'residentialSuburb', 'fileId', 'tag', 'frontFileId', 'personDocumentsFileId',
+        'personDocumentsTag', 'liveSelfieFileId', 'countryCode'
+      ];
+
+      // Check for missing required fields
+      const missingFields = requiredFields.filter(field => !userDetails[field]);
+      if (missingFields.length > 0) {
+        throw new AppError(
+          `Missing required fields: ${missingFields.join(', ')}`,
+          400,
+          'MISSING_REQUIRED_FIELDS'
+        );
+      }
+
+      const response = await this.axiosInstance.post('/zoqq/api/v1/user', userDetails, {
+        headers: {
+          'x-api-key': this.apiKey,
+          'x-program-id': this.programId || 'default',
+          'x-request-id': idempotencyKey,
+          'Authorization': `Bearer ${bearerToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const endTime = Date.now();
+      console.log(`[ZOQQ USER] User creation completed in ${endTime - startTime}ms`);
+
+      if (response.status === 200 && response.data.status === 'Success') {
+        console.log('[ZOQQ USER] User created successfully:', response.data.data[0].accountid);
+        return {
+          success: true,
+          accountId: response.data.data[0].accountid,
+          message: response.data.message,
+          status: response.data.status
+        };
+      } else {
+        throw new AppError(
+          response.data?.message || 'User creation failed',
+          response.status || 400,
+          'ZOQQ_USER_CREATION_FAILED'
+        );
+      }
+    } catch (error) {
+      console.error('[ZOQQ USER] User creation failed:', error.message);
+      
+      if (error.response) {
+        const status = error.response.status;
+        const message = error.response.data?.message || 'User creation failed';
+        throw new AppError(`Zoqq user creation error: ${message}`, status, 'ZOQQ_USER_ERROR');
+      }
+      
+      throw error instanceof AppError ? error : new AppError(
+        'Zoqq user service unavailable',
+        503,
+        'ZOQQ_SERVICE_UNAVAILABLE'
+      );
+    }
+  }
+
+  /**
+   * Retrieve user details from the system
+   * Endpoint: GET {{baseUrl}}/zoqq/api/v1/user
+   * @param {string} userId - User identification key
+   * @param {string} bearerToken - Valid bearer token
+   * @returns {Promise<Object>} User details
+   */
+  async getUser(userId, bearerToken) {
+    if (!this.zoqqEnabled) {
+      throw new AppError('Zoqq integration is not enabled', 400, 'ZOQQ_DISABLED');
+    }
+
+    try {
+      console.log('[ZOQQ USER] Retrieving user details for:', userId);
+      
+      const idempotencyKey = this.generateIdempotencyKey();
+      const startTime = Date.now();
+
+      const response = await this.axiosInstance.get('/zoqq/api/v1/user', {
+        headers: {
+          'x-api-key': this.apiKey,
+          'x-program-id': this.programId || 'default',
+          'x-request-id': idempotencyKey,
+          'x-user-id': userId,
+          'Authorization': `Bearer ${bearerToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const endTime = Date.now();
+      console.log(`[ZOQQ USER] User retrieval completed in ${endTime - startTime}ms`);
+
+      if (response.status === 200 && response.data.status === 'success') {
+        console.log('[ZOQQ USER] User details retrieved successfully');
+        return {
+          success: true,
+          userData: response.data.data,
+          message: response.data.message
+        };
+      } else {
+        throw new AppError(
+          response.data?.message || 'Failed to retrieve user details',
+          response.status || 400,
+          'ZOQQ_USER_RETRIEVAL_FAILED'
+        );
+      }
+    } catch (error) {
+      console.error('[ZOQQ USER] User retrieval failed:', error.message);
+      
+      if (error.response) {
+        const status = error.response.status;
+        const message = error.response.data?.message || 'User retrieval failed';
+        throw new AppError(`Zoqq user retrieval error: ${message}`, status, 'ZOQQ_USER_ERROR');
+      }
+      
+      throw error instanceof AppError ? error : new AppError(
+        'Zoqq user service unavailable',
+        503,
+        'ZOQQ_SERVICE_UNAVAILABLE'
+      );
+    }
+  }
+
+  /**
+   * Accept Terms and Conditions
+   * Endpoint: GET {{baseUrl}}/zoqq/api/v1/user/termsConditions
+   * @param {string} userId - User identification key
+   * @param {string} bearerToken - Valid bearer token
+   * @returns {Promise<Object>} Terms acceptance result
+   */
+  async acceptTermsAndConditions(userId, bearerToken) {
+    if (!this.zoqqEnabled) {
+      throw new AppError('Zoqq integration is not enabled', 400, 'ZOQQ_DISABLED');
+    }
+
+    try {
+      console.log('[ZOQQ TERMS] Accepting terms and conditions for user:', userId);
+      
+      const idempotencyKey = this.generateIdempotencyKey();
+      const startTime = Date.now();
+
+      const response = await this.axiosInstance.get('/zoqq/api/v1/user/termsConditions', {
+        headers: {
+          'x-api-key': this.apiKey,
+          'x-program-id': this.programId || 'default',
+          'x-request-id': idempotencyKey,
+          'x-user-id': userId,
+          'Authorization': `Bearer ${bearerToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const endTime = Date.now();
+      console.log(`[ZOQQ TERMS] Terms acceptance completed in ${endTime - startTime}ms`);
+
+      if (response.status === 200 && response.data.status === 'success') {
+        console.log('[ZOQQ TERMS] Terms and conditions accepted successfully');
+        return {
+          success: true,
+          message: response.data.message
+        };
+      } else {
+        throw new AppError(
+          response.data?.message || 'Failed to accept terms and conditions',
+          response.status || 400,
+          'ZOQQ_TERMS_ACCEPTANCE_FAILED'
+        );
+      }
+    } catch (error) {
+      console.error('[ZOQQ TERMS] Terms acceptance failed:', error.message);
+      
+      if (error.response) {
+        const status = error.response.status;
+        const message = error.response.data?.message || 'Terms acceptance failed';
+        throw new AppError(`Zoqq terms acceptance error: ${message}`, status, 'ZOQQ_TERMS_ERROR');
+      }
+      
+      throw error instanceof AppError ? error : new AppError(
+        'Zoqq terms service unavailable',
+        503,
+        'ZOQQ_SERVICE_UNAVAILABLE'
+      );
+    }
+  }
+
+  /**
+   * Activate user account
+   * Endpoint: GET {{baseUrl}}/zoqq/api/v1/user/activate
+   * @param {string} userId - User identification key
+   * @param {string} bearerToken - Valid bearer token
+   * @returns {Promise<Object>} Account activation result
+   */
+  async activateAccount(userId, bearerToken) {
+    if (!this.zoqqEnabled) {
+      throw new AppError('Zoqq integration is not enabled', 400, 'ZOQQ_DISABLED');
+    }
+
+    try {
+      console.log('[ZOQQ ACTIVATE] Activating account for user:', userId);
+      
+      const idempotencyKey = this.generateIdempotencyKey();
+      const startTime = Date.now();
+
+      const response = await this.axiosInstance.get('/zoqq/api/v1/user/activate', {
+        headers: {
+          'x-api-key': this.apiKey,
+          'x-program-id': this.programId || 'default',
+          'x-request-id': idempotencyKey,
+          'x-user-id': userId,
+          'Authorization': `Bearer ${bearerToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const endTime = Date.now();
+      console.log(`[ZOQQ ACTIVATE] Account activation completed in ${endTime - startTime}ms`);
+
+      if (response.status === 200 && response.data.status === 'success') {
+        console.log('[ZOQQ ACTIVATE] Account activated successfully');
+        return {
+          success: true,
+          message: response.data.message
+        };
+      } else {
+        throw new AppError(
+          response.data?.message || 'Account activation failed',
+          response.status || 400,
+          'ZOQQ_ACTIVATION_FAILED'
+        );
+      }
+    } catch (error) {
+      console.error('[ZOQQ ACTIVATE] Account activation failed:', error.message);
+      
+      if (error.response) {
+        const status = error.response.status;
+        const message = error.response.data?.message || 'Account activation failed';
+        throw new AppError(`Zoqq activation error: ${message}`, status, 'ZOQQ_ACTIVATION_ERROR');
+      }
+      
+      throw error instanceof AppError ? error : new AppError(
+        'Zoqq activation service unavailable',
+        503,
+        'ZOQQ_SERVICE_UNAVAILABLE'
+      );
+    }
+  }
+
+  // ========== RFI (Request for Information) APIs ==========
+
+  /**
+   * Retrieve RFI details
+   * Endpoint: GET {{baseUrl}}/zoqq/api/v1/user/rfi
+   * @param {string} userId - User identification key
+   * @param {string} bearerToken - Valid bearer token
+   * @returns {Promise<Object>} RFI details
+   */
+  async getRFI(userId, bearerToken) {
+    if (!this.zoqqEnabled) {
+      throw new AppError('Zoqq integration is not enabled', 400, 'ZOQQ_DISABLED');
+    }
+
+    try {
+      console.log('[ZOQQ RFI] Retrieving RFI details for user:', userId);
+      
+      const idempotencyKey = this.generateIdempotencyKey();
+      const startTime = Date.now();
+
+      const response = await this.axiosInstance.get('/zoqq/api/v1/user/rfi', {
+        headers: {
+          'x-api-key': this.apiKey,
+          'x-program-id': this.programId || 'default',
+          'x-request-id': idempotencyKey,
+          'x-user-id': userId,
+          'Authorization': `Bearer ${bearerToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const endTime = Date.now();
+      console.log(`[ZOQQ RFI] RFI retrieval completed in ${endTime - startTime}ms`);
+
+      if (response.status === 200) {
+        console.log('[ZOQQ RFI] RFI details retrieved successfully');
+        return {
+          success: true,
+          rfiData: response.data
+        };
+      } else {
+        throw new AppError(
+          'Failed to retrieve RFI details',
+          response.status || 400,
+          'ZOQQ_RFI_RETRIEVAL_FAILED'
+        );
+      }
+    } catch (error) {
+      console.error('[ZOQQ RFI] RFI retrieval failed:', error.message);
+      
+      if (error.response) {
+        const status = error.response.status;
+        const message = error.response.data?.message || 'RFI retrieval failed';
+        throw new AppError(`Zoqq RFI retrieval error: ${message}`, status, 'ZOQQ_RFI_ERROR');
+      }
+      
+      throw error instanceof AppError ? error : new AppError(
+        'Zoqq RFI service unavailable',
+        503,
+        'ZOQQ_SERVICE_UNAVAILABLE'
+      );
+    }
+  }
+
+  /**
+   * Respond to RFI request
+   * Endpoint: POST {{baseUrl}}/zoqq/api/v1/user/rfi
+   * @param {string} userId - User identification key
+   * @param {Object} rfiResponse - RFI response data
+   * @param {string} bearerToken - Valid bearer token
+   * @returns {Promise<Object>} RFI response result
+   */
+  async respondToRFI(userId, rfiResponse, bearerToken) {
+    if (!this.zoqqEnabled) {
+      throw new AppError('Zoqq integration is not enabled', 400, 'ZOQQ_DISABLED');
+    }
+
+    try {
+      console.log('[ZOQQ RFI] Responding to RFI for user:', userId);
+      
+      const idempotencyKey = this.generateIdempotencyKey();
+      const startTime = Date.now();
+
+      // Validate required RFI response fields
+      if (!rfiResponse.id || !rfiResponse.type) {
+        throw new AppError(
+          'Missing required RFI response fields: id and type are required',
+          400,
+          'MISSING_RFI_FIELDS'
+        );
+      }
+
+      const response = await this.axiosInstance.post('/zoqq/api/v1/user/rfi', rfiResponse, {
+        headers: {
+          'x-api-key': this.apiKey,
+          'x-program-id': this.programId || 'default',
+          'x-request-id': idempotencyKey,
+          'x-user-id': userId,
+          'Authorization': `Bearer ${bearerToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const endTime = Date.now();
+      console.log(`[ZOQQ RFI] RFI response completed in ${endTime - startTime}ms`);
+
+      if (response.status === 200) {
+        console.log('[ZOQQ RFI] RFI response submitted successfully');
+        return {
+          success: true,
+          message: 'RFI response submitted successfully',
+          data: response.data
+        };
+      } else {
+        throw new AppError(
+          'Failed to submit RFI response',
+          response.status || 400,
+          'ZOQQ_RFI_RESPONSE_FAILED'
+        );
+      }
+    } catch (error) {
+      console.error('[ZOQQ RFI] RFI response failed:', error.message);
+      
+      if (error.response) {
+        const status = error.response.status;
+        const message = error.response.data?.message || 'RFI response failed';
+        throw new AppError(`Zoqq RFI response error: ${message}`, status, 'ZOQQ_RFI_ERROR');
+      }
+      
+      throw error instanceof AppError ? error : new AppError(
+        'Zoqq RFI service unavailable',
+        503,
+        'ZOQQ_SERVICE_UNAVAILABLE'
+      );
+    }
+  }
+
+  // ========== INTERNAL AUTH METHODS (EXISTING) ==========
 
   /**
    * Create authentication token for user (with optional Zoqq integration)
@@ -132,7 +619,7 @@ class ZoqqAuthService {
         userId: userData?.id || userData?._id || userEmail,
         email: userEmail,
         role: userRole,
-        isAdmin: userRole === 'admin', // Add isAdmin field for compatibility
+        isAdmin: userRole === 'admin',
         zoqqToken: zoqqToken,
         zoqqExpiresAt: zoqqExpiresAt || expiresAt.toISOString(),
         ip: userIp,
@@ -189,136 +676,6 @@ class ZoqqAuthService {
         "AUTH_UNEXPECTED_ERROR"
       );
     }
-  }
-
-  /**
-   * Get Zoqq token (if integration is enabled)
-   * @returns {Promise<Object>} Zoqq token and expiration
-   */
-  async getZoqqToken() {
-    if (!this.zoqqEnabled) {
-      throw new Error('Zoqq integration is not enabled');
-    }
-
-    try {
-      // Make authentication request to Zoqq API
-      const response = await this.axiosInstance.post(
-        "/api/v1/authentication/login"
-      );
-
-      // Validate response structure
-      if (!response.data || !response.data.token || !response.data.expires_at) {
-        throw new AppError(
-          "Invalid response structure from Zoqq API",
-          502,
-          "INVALID_AUTH_RESPONSE"
-        );
-      }
-
-      const { token: zoqqToken, expires_at } = response.data;
-
-      // Validate token format (should be JWT)
-      if (!this.isValidJWT(zoqqToken)) {
-        throw new AppError(
-          "Invalid token format received from Zoqq API",
-          502,
-          "INVALID_TOKEN_FORMAT"
-        );
-      }
-
-      // Parse expiration date
-      const expiresAt = new Date(expires_at);
-      const now = new Date();
-
-      if (expiresAt <= now) {
-        throw new AppError(
-          "Received expired token from Zoqq API",
-          502,
-          "EXPIRED_TOKEN_RECEIVED"
-        );
-      }
-
-      return {
-        token: zoqqToken,
-        expires_at: expires_at
-      };
-
-    } catch (error) {
-      // Handle different types of errors
-      if (error.response) {
-        const status = error.response.status;
-        const errorData = error.response.data;
-
-        console.error(`[ZOQQ API] Error ${status}:`, errorData);
-
-        if (status === 401) {
-          throw new AppError(
-            "Zoqq authentication credentials are invalid",
-            401,
-            "ZOQQ_INVALID_CREDENTIALS"
-          );
-        }
-
-        if (status === 403) {
-          throw new AppError(
-            "Access denied by Zoqq authentication service",
-            403,
-            "ZOQQ_ACCESS_DENIED"
-          );
-        }
-
-        if (status === 429) {
-          throw new AppError(
-            "Too many Zoqq authentication requests",
-            429,
-            "ZOQQ_RATE_LIMITED"
-          );
-        }
-
-        throw externalApiErrorHandler(error, "Zoqq");
-      }
-
-      if (error.code === "ECONNREFUSED" || error.code === "ENOTFOUND") {
-        throw new AppError(
-          "Zoqq authentication service is unavailable",
-          503,
-          "ZOQQ_SERVICE_UNAVAILABLE"
-        );
-      }
-
-      if (error.code === "ECONNABORTED") {
-        throw new AppError(
-          "Zoqq authentication request timed out",
-          408,
-          "ZOQQ_TIMEOUT"
-        );
-      }
-
-      // Re-throw AppError instances
-      if (error instanceof AppError) {
-        throw error;
-      }
-
-      throw new AppError(
-        "Zoqq authentication service encountered an error",
-        500,
-        "ZOQQ_UNEXPECTED_ERROR"
-      );
-    }
-  }
-
-  /**
-   * Validate JWT token format
-   * @param {string} token - Token to validate
-   * @returns {boolean} Whether token has valid JWT format
-   */
-  isValidJWT(token) {
-    if (!token || typeof token !== "string") {
-      return false;
-    }
-
-    const parts = token.split(".");
-    return parts.length === 3 && parts.every((part) => part.length > 0);
   }
 
   /**
@@ -430,6 +787,72 @@ class ZoqqAuthService {
   }
 
   /**
+   * Create a new user in the database
+   * @param {Object} userData - User data including email, password, names, role, etc.
+   * @returns {Object} Result with user creation status
+   */
+  async createUser(userData) {
+    try {
+      console.log(`[AUTH] Creating new user: ${userData.email}`);
+
+      // Import User model dynamically to avoid circular dependencies
+      const User = require('../models/User');
+
+      // Create new user in database
+      const newUser = new User({
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        email: userData.email.toLowerCase(),
+        password: userData.password,
+        role: userData.role || 'user',
+        accountStatus: 'pending_verification'
+      });
+
+      // Generate unique account number
+      newUser.accountNumber = newUser.generateAccountNumber();
+
+      // Save user to database
+      const savedUser = await newUser.save();
+
+      console.log(`[AUTH] User created successfully: ${savedUser.email} with role: ${savedUser.role}`);
+
+      return {
+        success: true,
+        user: {
+          id: savedUser._id,
+          email: savedUser.email,
+          firstName: savedUser.firstName,
+          lastName: savedUser.lastName,
+          role: savedUser.role,
+          accountNumber: savedUser.accountNumber,
+          accountStatus: savedUser.accountStatus,
+          isVerified: savedUser.isVerified,
+          profileCompleteness: savedUser.profileCompleteness
+        }
+      };
+    } catch (error) {
+      console.error(`[AUTH] User creation failed for ${userData.email}:`, error.message);
+      
+      if (error.code === 11000) {
+        // Duplicate key error (email already exists)
+        if (error.message.includes('email')) {
+          throw new AppError('Email address already exists', 409, 'EMAIL_EXISTS');
+        }
+        if (error.message.includes('accountNumber')) {
+          throw new AppError('Account number generation failed', 500, 'ACCOUNT_NUMBER_ERROR');
+        }
+      }
+
+      if (error.name === 'ValidationError') {
+        const validationErrors = Object.values(error.errors).map(err => err.message);
+        throw new AppError(`Validation failed: ${validationErrors.join(', ')}`, 400, 'VALIDATION_ERROR');
+      }
+
+      throw new AppError('User creation failed', 500, 'USER_CREATION_ERROR');
+    }
+  }
+
+  /**
    * Check if a user exists in the system
    * @param {string} email - Email address to check
    * @returns {Object} Result indicating if user exists
@@ -454,7 +877,8 @@ class ZoqqAuthService {
             id: user._id,
             email: user.email,
             isVerified: user.isVerified,
-            accountStatus: user.accountStatus
+            accountStatus: user.accountStatus,
+            role: user.role
           } : null
         },
       };
@@ -580,78 +1004,6 @@ class ZoqqAuthService {
         "Authentication failed",
         500,
         "AUTH_ERROR"
-      );
-    }
-  }
-
-  /**
-   * Create new user account
-   * @param {Object} userData - User registration data
-   * @returns {Object} Created user data
-   */
-  async createUser(userData) {
-    try {
-      console.log(`[AUTH] Creating new user: ${userData.email}`);
-
-      // Import User model dynamically
-      const User = require('../models/User');
-
-      // Create new user
-      const user = new User({
-        firstName: userData.firstName,
-        lastName: userData.lastName,
-        email: userData.email.toLowerCase(),
-        password: userData.password,
-        // Generate account number for banking
-        accountNumber: null // Will be generated when account is verified
-      });
-
-      // Save user to database
-      await user.save();
-
-      console.log(`[AUTH] User created successfully: ${userData.email}`);
-
-      return {
-        success: true,
-        user: {
-          id: user._id,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          fullName: user.fullName,
-          accountStatus: user.accountStatus,
-          isVerified: user.isVerified,
-          profileCompleteness: user.profileCompleteness,
-          createdAt: user.createdAt
-        }
-      };
-
-    } catch (error) {
-      console.error(`[AUTH] User creation failed for ${userData.email}:`, error.message);
-
-      // Handle duplicate email error
-      if (error.code === 11000 && error.keyPattern?.email) {
-        throw new AppError(
-          "An account with this email address already exists",
-          409,
-          "USER_EXISTS"
-        );
-      }
-
-      // Handle validation errors
-      if (error.name === 'ValidationError') {
-        const firstError = Object.values(error.errors)[0];
-        throw new AppError(
-          firstError.message,
-          400,
-          "VALIDATION_ERROR"
-        );
-      }
-
-      throw new AppError(
-        "User creation failed",
-        500,
-        "USER_CREATION_ERROR"
       );
     }
   }

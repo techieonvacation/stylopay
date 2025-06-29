@@ -187,6 +187,36 @@ const userSchema = new mongoose.Schema({
     default: 0,
     min: 0,
     max: 100
+  },
+  
+  // Zoqq Integration fields
+  zoqqAccountId: {
+    type: String,
+    unique: true,
+    sparse: true, // Allow null values but ensure uniqueness when present
+    index: true
+  },
+  
+  zoqqAccountStatus: {
+    type: String,
+    enum: ['not_created', 'zoqq_created', 'terms_accepted', 'active', 'suspended'],
+    default: 'not_created'
+  },
+  
+  termsAcceptedAt: {
+    type: Date
+  },
+  
+  activatedAt: {
+    type: Date
+  },
+  
+  zoqqCreatedAt: {
+    type: Date
+  },
+  
+  zoqqLastSync: {
+    type: Date
   }
   
 }, {
@@ -198,6 +228,8 @@ const userSchema = new mongoose.Schema({
 userSchema.index({ email: 1, accountStatus: 1 });
 userSchema.index({ accountNumber: 1, accountStatus: 1 });
 userSchema.index({ createdAt: -1 });
+userSchema.index({ zoqqAccountId: 1, zoqqAccountStatus: 1 });
+userSchema.index({ zoqqAccountStatus: 1, updatedAt: -1 });
 
 // Virtual for full name
 userSchema.virtual('fullName').get(function() {

@@ -19,6 +19,7 @@ const database = require('./config/database');
 // Import routes
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user');
+const zoqqRoutes = require('./routes/zoqq');
 
 // Import middleware
 const { errorHandler } = require('./middleware/errorHandler');
@@ -171,6 +172,7 @@ app.get('/health', (req, res) => {
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);
+app.use('/api/zoqq', zoqqRoutes);
 
 // Handle 404 errors
 app.use('*', (req, res) => {

@@ -184,6 +184,11 @@ router.post('/signup',
       .equals('true')
       .withMessage('You must agree to the terms of service'),
       
+    body('role')
+      .optional()
+      .isIn(['user', 'premium', 'admin'])
+      .withMessage('Role must be either user, premium, or admin'),
+      
     // Optional device information for security tracking
     body('deviceInfo')
       .optional()
@@ -192,7 +197,7 @@ router.post('/signup',
   ],
   validate,
   asyncHandler(async (req, res) => {
-    const { email, password, firstName, lastName, deviceInfo } = req.body;
+    const { email, password, firstName, lastName, role, deviceInfo } = req.body;
     const userIp = req.ip || req.connection.remoteAddress;
     const userAgent = req.get('User-Agent');
 
@@ -212,6 +217,7 @@ router.post('/signup',
          lastName: lastName.trim(),
          email: email.toLowerCase().trim(),
          password: password,
+         role: role || 'user', // Default to 'user' if no role specified
          deviceInfo: deviceInfo
        });
 

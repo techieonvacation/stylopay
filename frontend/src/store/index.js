@@ -8,6 +8,7 @@ import { setupListeners } from '@reduxjs/toolkit/query';
 import authReducer from './slices/authSlice';
 import { authApi } from './api/authApi';
 import { userApi } from './api/userApi';
+import { zoqqApi } from './api/zoqqApi';
 
 /**
  * Configure Redux store with reducers and middleware
@@ -20,6 +21,7 @@ export const store = configureStore({
     // RTK Query API slices
     [authApi.reducerPath]: authApi.reducer,
     [userApi.reducerPath]: userApi.reducer,
+    [zoqqApi.reducerPath]: zoqqApi.reducer,
   },
   
   middleware: (getDefaultMiddleware) =>
@@ -42,7 +44,8 @@ export const store = configureStore({
       immutableCheck: process.env.NODE_ENV !== 'production',
     })
     .concat(authApi.middleware)
-    .concat(userApi.middleware),
+    .concat(userApi.middleware)
+    .concat(zoqqApi.middleware),
 
   // Enable Redux DevTools in development only
   devTools: process.env.NODE_ENV !== 'production',

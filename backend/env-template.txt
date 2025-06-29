@@ -15,11 +15,12 @@ MONGODB_URI=mongodb://localhost:27017/stylopay
 # For MongoDB Atlas (production):
 # MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/stylopay?retryWrites=true&w=majority
 
-# Zoqq API Configuration (Optional - Leave empty to disable)
-# Authentication will work with local database only if not configured
+# Zoqq API Configuration (Required for Zoqq integration)
+# Get these credentials from Zoqq support team
 ZOQQ_BASE_URL=https://api.zoqq.com
-ZOQQ_CLIENT_ID=
-ZOQQ_API_KEY=
+ZOQQ_CLIENT_ID=Shared By Zoqq
+ZOQQ_API_KEY=Shared By Zoqq
+ZOQQ_PROGRAM_ID=BasedOnRequirement
 
 # Redis Configuration (for session storage)
 REDIS_HOST=localhost
@@ -58,4 +59,19 @@ TRUST_PROXY=false
 
 # Monitoring and Analytics
 SENTRY_DSN=your-sentry-dsn-for-error-tracking
-ANALYTICS_API_KEY=your-analytics-api-key 
+ANALYTICS_API_KEY=your-analytics-api-key
+
+# ========== ZOQQ API DOCUMENTATION REFERENCE ==========
+# Authentication Login: POST {{baseUrl}}/api/v1/authentication/login
+# Required Headers: x-client-id, x-api-key
+# 
+# User Management Endpoints:
+# Create User: POST {{baseUrl}}/zoqq/api/v1/user
+# Get User: GET {{baseUrl}}/zoqq/api/v1/user
+# Accept Terms: GET {{baseUrl}}/zoqq/api/v1/user/termsConditions
+# Activate Account: GET {{baseUrl}}/zoqq/api/v1/user/activate
+# Retrieve RFI: GET {{baseUrl}}/zoqq/api/v1/user/rfi
+# Respond RFI: POST {{baseUrl}}/zoqq/api/v1/user/rfi
+#
+# Required Headers for all User endpoints:
+# x-api-key, x-program-id, x-request-id, x-user-id, Authorization: Bearer token 

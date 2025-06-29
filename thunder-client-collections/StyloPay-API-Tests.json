@@ -1,0 +1,880 @@
+{
+  "client": "Thunder Client",
+  "collectionName": "StyloPay API Tests",
+  "dateExported": "2025-01-27T10:00:00.000Z",
+  "version": "1.1",
+  "folderName": "StyloPay Banking API",
+  "folders": [
+    {
+      "_id": "f1_auth",
+      "name": "Authentication",
+      "containerId": "",
+      "created": "2025-01-27T10:00:00.000Z",
+      "sortNum": 10000
+    },
+    {
+      "_id": "f2_zoqq",
+      "name": "Zoqq Integration",
+      "containerId": "",
+      "created": "2025-01-27T10:00:00.000Z",
+      "sortNum": 20000
+    },
+    {
+      "_id": "f3_user",
+      "name": "User Management",
+      "containerId": "",
+      "created": "2025-01-27T10:00:00.000Z",
+      "sortNum": 30000
+    },
+    {
+      "_id": "f4_admin",
+      "name": "Admin Operations",
+      "containerId": "",
+      "created": "2025-01-27T10:00:00.000Z",
+      "sortNum": 40000
+    }
+  ],
+  "requests": [
+    {
+      "_id": "req_health_check",
+      "colId": "stylopay_api",
+      "containerId": "",
+      "name": "Health Check",
+      "url": "{{BASE_URL}}/health",
+      "method": "GET",
+      "sortNum": 5000,
+      "created": "2025-01-27T10:00:00.000Z",
+      "modified": "2025-01-27T10:00:00.000Z",
+      "headers": [],
+      "params": [],
+      "tests": [
+        {
+          "type": "res-code",
+          "custom": "",
+          "action": "equal",
+          "value": "200"
+        },
+        {
+          "type": "json-query",
+          "custom": "json.status",
+          "action": "equal",
+          "value": "OK"
+        }
+      ]
+    },
+    {
+      "_id": "req_auth_signup",
+      "colId": "stylopay_api",
+      "containerId": "f1_auth",
+      "name": "Sign Up User",
+      "url": "{{BASE_URL}}/auth/signup",
+      "method": "POST",
+      "sortNum": 10000,
+      "created": "2025-01-27T10:00:00.000Z",
+      "modified": "2025-01-27T10:00:00.000Z",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"SecurePass123!\",\n  \"confirmPassword\": \"SecurePass123!\",\n  \"agreeToTerms\": \"true\",\n  \"deviceInfo\": {\n    \"browser\": \"Thunder Client\",\n    \"os\": \"Testing\",\n    \"userAgent\": \"Thunder Client API Testing\",\n    \"timestamp\": \"{{$timestamp}}\"\n  }\n}",
+        "form": []
+      },
+      "tests": [
+        {
+          "type": "res-code",
+          "custom": "",
+          "action": "equal",
+          "value": "201"
+        },
+        {
+          "type": "json-query",
+          "custom": "json.success",
+          "action": "equal",
+          "value": "true"
+        },
+        {
+          "type": "set-env-var",
+          "custom": "json.user.email",
+          "action": "seteq",
+          "value": "TEST_USER_EMAIL"
+        }
+      ]
+    },
+    {
+      "_id": "req_auth_signup_admin",
+      "colId": "stylopay_api",
+      "containerId": "f1_auth",
+      "name": "Sign Up Admin User",
+      "url": "{{BASE_URL}}/auth/signup",
+      "method": "POST",
+      "sortNum": 11000,
+      "created": "2025-01-27T10:00:00.000Z",
+      "modified": "2025-01-27T10:00:00.000Z",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"firstName\": \"Admin\",\n  \"lastName\": \"User\",\n  \"email\": \"admin@stylopay.com\",\n  \"password\": \"AdminPass123!\",\n  \"confirmPassword\": \"AdminPass123!\",\n  \"agreeToTerms\": \"true\",\n  \"role\": \"admin\",\n  \"deviceInfo\": {\n    \"browser\": \"Thunder Client\",\n    \"os\": \"Testing\",\n    \"userAgent\": \"Thunder Client API Testing\",\n    \"timestamp\": \"{{$timestamp}}\"\n  }\n}",
+        "form": []
+      },
+      "tests": [
+        {
+          "type": "res-code",
+          "custom": "",
+          "action": "equal",
+          "value": "201"
+        },
+        {
+          "type": "set-env-var",
+          "custom": "json.user.email",
+          "action": "seteq",
+          "value": "ADMIN_EMAIL"
+        }
+      ]
+    },
+    {
+      "_id": "req_auth_login",
+      "colId": "stylopay_api",
+      "containerId": "f1_auth",
+      "name": "Login User",
+      "url": "{{BASE_URL}}/auth/login",
+      "method": "POST",
+      "sortNum": 12000,
+      "created": "2025-01-27T10:00:00.000Z",
+      "modified": "2025-01-27T10:00:00.000Z",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"SecurePass123!\",\n  \"rememberMe\": false,\n  \"deviceInfo\": {\n    \"browser\": \"Thunder Client\",\n    \"os\": \"Testing\",\n    \"userAgent\": \"Thunder Client API Testing\",\n    \"timestamp\": \"{{$timestamp}}\"\n  }\n}",
+        "form": []
+      },
+      "tests": [
+        {
+          "type": "res-code",
+          "custom": "",
+          "action": "equal",
+          "value": "200"
+        },
+        {
+          "type": "json-query",
+          "custom": "json.success",
+          "action": "equal",
+          "value": "true"
+        },
+        {
+          "type": "set-env-var",
+          "custom": "json.token.accessToken",
+          "action": "seteq",
+          "value": "USER_TOKEN"
+        },
+        {
+          "type": "set-env-var",
+          "custom": "json.user.role",
+          "action": "seteq",
+          "value": "USER_ROLE"
+        }
+      ]
+    },
+    {
+      "_id": "req_auth_login_admin",
+      "colId": "stylopay_api",
+      "containerId": "f1_auth",
+      "name": "Login Admin",
+      "url": "{{BASE_URL}}/auth/login",
+      "method": "POST",
+      "sortNum": 13000,
+      "created": "2025-01-27T10:00:00.000Z",
+      "modified": "2025-01-27T10:00:00.000Z",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"email\": \"admin@stylopay.com\",\n  \"password\": \"AdminPass123!\",\n  \"rememberMe\": false,\n  \"deviceInfo\": {\n    \"browser\": \"Thunder Client\",\n    \"os\": \"Testing\",\n    \"userAgent\": \"Thunder Client API Testing\",\n    \"timestamp\": \"{{$timestamp}}\"\n  }\n}",
+        "form": []
+      },
+      "tests": [
+        {
+          "type": "res-code",
+          "custom": "",
+          "action": "equal",
+          "value": "200"
+        },
+        {
+          "type": "json-query",
+          "custom": "json.success",
+          "action": "equal",
+          "value": "true"
+        },
+        {
+          "type": "set-env-var",
+          "custom": "json.token.accessToken",
+          "action": "seteq",
+          "value": "ADMIN_TOKEN"
+        },
+        {
+          "type": "json-query",
+          "custom": "json.user.role",
+          "action": "equal",
+          "value": "admin"
+        }
+      ]
+    },
+    {
+      "_id": "req_auth_status",
+      "colId": "stylopay_api",
+      "containerId": "f1_auth",
+      "name": "Check Auth Status",
+      "url": "{{BASE_URL}}/auth/status",
+      "method": "GET",
+      "sortNum": 14000,
+      "created": "2025-01-27T10:00:00.000Z",
+      "modified": "2025-01-27T10:00:00.000Z",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{USER_TOKEN}}"
+        }
+      ],
+      "tests": [
+        {
+          "type": "res-code",
+          "custom": "",
+          "action": "equal",
+          "value": "200"
+        },
+        {
+          "type": "json-query",
+          "custom": "json.authenticated",
+          "action": "equal",
+          "value": "true"
+        }
+      ]
+    },
+    {
+      "_id": "req_auth_refresh",
+      "colId": "stylopay_api",
+      "containerId": "f1_auth",
+      "name": "Refresh Token",
+      "url": "{{BASE_URL}}/auth/refresh",
+      "method": "POST",
+      "sortNum": 15000,
+      "created": "2025-01-27T10:00:00.000Z",
+      "modified": "2025-01-27T10:00:00.000Z",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{USER_TOKEN}}"
+        }
+      ],
+      "tests": [
+        {
+          "type": "res-code",
+          "custom": "",
+          "action": "equal",
+          "value": "200"
+        },
+        {
+          "type": "json-query",
+          "custom": "json.success",
+          "action": "equal",
+          "value": "true"
+        }
+      ]
+    },
+    {
+      "_id": "req_auth_logout",
+      "colId": "stylopay_api",
+      "containerId": "f1_auth",
+      "name": "Logout",
+      "url": "{{BASE_URL}}/auth/logout",
+      "method": "POST",
+      "sortNum": 16000,
+      "created": "2025-01-27T10:00:00.000Z",
+      "modified": "2025-01-27T10:00:00.000Z",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{USER_TOKEN}}"
+        }
+      ],
+      "tests": [
+        {
+          "type": "res-code",
+          "custom": "",
+          "action": "equal",
+          "value": "200"
+        },
+        {
+          "type": "json-query",
+          "custom": "json.success",
+          "action": "equal",
+          "value": "true"
+        }
+      ]
+    },
+    {
+      "_id": "req_zoqq_status",
+      "colId": "stylopay_api",
+      "containerId": "f2_zoqq",
+      "name": "Zoqq Integration Status",
+      "url": "{{BASE_URL}}/zoqq/status",
+      "method": "GET",
+      "sortNum": 20000,
+      "created": "2025-01-27T10:00:00.000Z",
+      "modified": "2025-01-27T10:00:00.000Z",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{USER_TOKEN}}"
+        }
+      ],
+      "tests": [
+        {
+          "type": "res-code",
+          "custom": "",
+          "action": "equal",
+          "value": "200"
+        },
+        {
+          "type": "json-query",
+          "custom": "json.data.integration_enabled",
+          "action": "equal",
+          "value": "true"
+        }
+      ]
+    },
+    {
+      "_id": "req_zoqq_auth_token",
+      "colId": "stylopay_api",
+      "containerId": "f2_zoqq",
+      "name": "Get Zoqq Auth Token",
+      "url": "{{BASE_URL}}/zoqq/auth/token",
+      "method": "POST",
+      "sortNum": 21000,
+      "created": "2025-01-27T10:00:00.000Z",
+      "modified": "2025-01-27T10:00:00.000Z",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{USER_TOKEN}}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "tests": [
+        {
+          "type": "res-code",
+          "custom": "",
+          "action": "equal",
+          "value": "200"
+        },
+        {
+          "type": "json-query",
+          "custom": "json.status",
+          "action": "equal",
+          "value": "success"
+        },
+        {
+          "type": "set-env-var",
+          "custom": "json.data.token",
+          "action": "seteq",
+          "value": "ZOQQ_TOKEN"
+        }
+      ]
+    },
+    {
+      "_id": "req_zoqq_create_user",
+      "colId": "stylopay_api",
+      "containerId": "f2_zoqq",
+      "name": "Create Zoqq User",
+      "url": "{{BASE_URL}}/zoqq/user/create",
+      "method": "POST",
+      "sortNum": 22000,
+      "created": "2025-01-27T10:00:00.000Z",
+      "modified": "2025-01-27T10:00:00.000Z",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{USER_TOKEN}}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"emailId\": \"test.zoqq@example.com\",\n  \"amount\": \"10\",\n  \"currency\": \"USD\",\n  \"businessName\": \"Test Business Pty Ltd\",\n  \"businessStructure\": \"COMPANY\",\n  \"contactNumber\": \"1234567890\",\n  \"identificationType\": \"Passport\",\n  \"Idnumber\": \"X1234567\",\n  \"issuingCountryCode\": \"SG\",\n  \"effectiveAt\": \"2020-01-01\",\n  \"expireAt\": \"2030-01-01\",\n  \"firstName\": \"Test\",\n  \"lastName\": \"User\",\n  \"middleName\": \"Zoqq\",\n  \"dateOfBirth\": \"1985-05-15\",\n  \"nationality\": \"SG\",\n  \"mobile\": \"912500678\",\n  \"roles\": \"BENEFICIAL_OWNER\",\n  \"legalEntityType\": \"BUSINESS\",\n  \"asTrustee\": true,\n  \"agreedToTermsAndConditions\": true,\n  \"productReference\": \"ACCEPT_ONLINE_PAYMENTS\",\n  \"type\": \"brn\",\n  \"number\": \"1234567890\",\n  \"descriptionOfGoodsOrServices\": \"Test payment gateway services\",\n  \"industryCategoryCode\": \"ICCV3_0000XX\",\n  \"operatingCountry\": \"AU\",\n  \"registrationAddressLine1\": \"123 Test Street\",\n  \"registrationAddressLine2\": \"Suite 456\",\n  \"registrationCountryCode\": \"SG\",\n  \"registrationPostcode\": \"2000\",\n  \"registrationState\": \"NSW\",\n  \"registrationSuburb\": \"Sydney\",\n  \"residentialAddressLine1\": \"456 Residential Street\",\n  \"residentialCountryCode\": \"SG\",\n  \"residentialPostcode\": \"2010\",\n  \"residentialState\": \"NSW\",\n  \"residentialSuburb\": \"Newtown\",\n  \"fileId\": \"test_business_document_file_id_123456789\",\n  \"tag\": \"BUSINESS_LICENSE\",\n  \"frontFileId\": \"test_id_front_file_id_123456789\",\n  \"personDocumentsFileId\": \"test_person_docs_file_id_123456789\",\n  \"personDocumentsTag\": \"PERSON_PURPORTING_TO_ACT_AUTHORISATION_LETTER\",\n  \"liveSelfieFileId\": \"test_selfie_file_id_123456789\",\n  \"countryCode\": \"SG\"\n}",
+        "form": []
+      },
+      "tests": [
+        {
+          "type": "res-code",
+          "custom": "",
+          "action": "equal",
+          "value": "201"
+        },
+        {
+          "type": "json-query",
+          "custom": "json.status",
+          "action": "equal",
+          "value": "success"
+        },
+        {
+          "type": "set-env-var",
+          "custom": "json.data.accountId",
+          "action": "seteq",
+          "value": "ZOQQ_ACCOUNT_ID"
+        }
+      ]
+    },
+    {
+      "_id": "req_zoqq_get_user",
+      "colId": "stylopay_api",
+      "containerId": "f2_zoqq",
+      "name": "Get Zoqq User Details",
+      "url": "{{BASE_URL}}/zoqq/user/{{ZOQQ_ACCOUNT_ID}}",
+      "method": "GET",
+      "sortNum": 23000,
+      "created": "2025-01-27T10:00:00.000Z",
+      "modified": "2025-01-27T10:00:00.000Z",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{USER_TOKEN}}"
+        }
+      ],
+      "tests": [
+        {
+          "type": "res-code",
+          "custom": "",
+          "action": "equal",
+          "value": "200"
+        },
+        {
+          "type": "json-query",
+          "custom": "json.status",
+          "action": "equal",
+          "value": "success"
+        }
+      ]
+    },
+    {
+      "_id": "req_zoqq_accept_terms",
+      "colId": "stylopay_api",
+      "containerId": "f2_zoqq",
+      "name": "Accept Terms and Conditions",
+      "url": "{{BASE_URL}}/zoqq/user/{{ZOQQ_ACCOUNT_ID}}/terms",
+      "method": "POST",
+      "sortNum": 24000,
+      "created": "2025-01-27T10:00:00.000Z",
+      "modified": "2025-01-27T10:00:00.000Z",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{USER_TOKEN}}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "tests": [
+        {
+          "type": "res-code",
+          "custom": "",
+          "action": "equal",
+          "value": "200"
+        },
+        {
+          "type": "json-query",
+          "custom": "json.status",
+          "action": "equal",
+          "value": "success"
+        }
+      ]
+    },
+    {
+      "_id": "req_zoqq_activate_account",
+      "colId": "stylopay_api",
+      "containerId": "f2_zoqq",
+      "name": "Activate Zoqq Account",
+      "url": "{{BASE_URL}}/zoqq/user/{{ZOQQ_ACCOUNT_ID}}/activate",
+      "method": "POST",
+      "sortNum": 25000,
+      "created": "2025-01-27T10:00:00.000Z",
+      "modified": "2025-01-27T10:00:00.000Z",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{USER_TOKEN}}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "tests": [
+        {
+          "type": "res-code",
+          "custom": "",
+          "action": "equal",
+          "value": "200"
+        },
+        {
+          "type": "json-query",
+          "custom": "json.status",
+          "action": "equal",
+          "value": "success"
+        }
+      ]
+    },
+    {
+      "_id": "req_zoqq_get_rfi",
+      "colId": "stylopay_api",
+      "containerId": "f2_zoqq",
+      "name": "Get RFI Details",
+      "url": "{{BASE_URL}}/zoqq/user/{{ZOQQ_ACCOUNT_ID}}/rfi",
+      "method": "GET",
+      "sortNum": 26000,
+      "created": "2025-01-27T10:00:00.000Z",
+      "modified": "2025-01-27T10:00:00.000Z",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{USER_TOKEN}}"
+        }
+      ],
+      "tests": [
+        {
+          "type": "res-code",
+          "custom": "",
+          "action": "equal",
+          "value": "200"
+        }
+      ]
+    },
+    {
+      "_id": "req_zoqq_respond_rfi",
+      "colId": "stylopay_api",
+      "containerId": "f2_zoqq",
+      "name": "Respond to RFI",
+      "url": "{{BASE_URL}}/zoqq/user/{{ZOQQ_ACCOUNT_ID}}/rfi",
+      "method": "POST",
+      "sortNum": 27000,
+      "created": "2025-01-27T10:00:00.000Z",
+      "modified": "2025-01-27T10:00:00.000Z",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{USER_TOKEN}}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"id\": \"sample-rfi-question-id\",\n  \"type\": \"ADDRESS\",\n  \"address_line1\": \"200 Collins Street\",\n  \"address_line2\": \"Level 10\",\n  \"country_code\": \"AU\",\n  \"postcode\": \"3000\",\n  \"state\": \"VIC\",\n  \"suburb\": \"Melbourne\",\n  \"attachments\": [\n    {\n      \"file_id\": \"sample_supporting_document_id\"\n    }\n  ]\n}",
+        "form": []
+      },
+      "tests": [
+        {
+          "type": "res-code",
+          "custom": "",
+          "action": "equal",
+          "value": "200"
+        }
+      ]
+    },
+    {
+      "_id": "req_user_profile",
+      "colId": "stylopay_api",
+      "containerId": "f3_user",
+      "name": "Get User Profile",
+      "url": "{{BASE_URL}}/user/profile",
+      "method": "GET",
+      "sortNum": 30000,
+      "created": "2025-01-27T10:00:00.000Z",
+      "modified": "2025-01-27T10:00:00.000Z",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{USER_TOKEN}}"
+        }
+      ],
+      "tests": [
+        {
+          "type": "res-code",
+          "custom": "",
+          "action": "equal",
+          "value": "200"
+        }
+      ]
+    },
+    {
+      "_id": "req_user_update_profile",
+      "colId": "stylopay_api",
+      "containerId": "f3_user",
+      "name": "Update User Profile",
+      "url": "{{BASE_URL}}/user/profile",
+      "method": "PUT",
+      "sortNum": 31000,
+      "created": "2025-01-27T10:00:00.000Z",
+      "modified": "2025-01-27T10:00:00.000Z",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{USER_TOKEN}}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"firstName\": \"John Updated\",\n  \"lastName\": \"Doe Updated\",\n  \"phone\": \"+1234567890\",\n  \"dateOfBirth\": \"1990-01-15\",\n  \"address\": {\n    \"street\": \"123 Main St\",\n    \"city\": \"New York\",\n    \"state\": \"NY\",\n    \"zipCode\": \"10001\",\n    \"country\": \"US\"\n  }\n}",
+        "form": []
+      },
+      "tests": [
+        {
+          "type": "res-code",
+          "custom": "",
+          "action": "equal",
+          "value": "200"
+        }
+      ]
+    },
+    {
+      "_id": "req_admin_users_list",
+      "colId": "stylopay_api",
+      "containerId": "f4_admin",
+      "name": "List All Users (Admin)",
+      "url": "{{BASE_URL}}/user/admin/users",
+      "method": "GET",
+      "sortNum": 40000,
+      "created": "2025-01-27T10:00:00.000Z",
+      "modified": "2025-01-27T10:00:00.000Z",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ADMIN_TOKEN}}"
+        }
+      ],
+      "params": [
+        {
+          "name": "page",
+          "value": "1"
+        },
+        {
+          "name": "limit",
+          "value": "10"
+        },
+        {
+          "name": "search",
+          "value": ""
+        }
+      ],
+      "tests": [
+        {
+          "type": "res-code",
+          "custom": "",
+          "action": "equal",
+          "value": "200"
+        },
+        {
+          "type": "json-query",
+          "custom": "json.success",
+          "action": "equal",
+          "value": "true"
+        }
+      ]
+    },
+    {
+      "_id": "req_admin_user_details",
+      "colId": "stylopay_api",
+      "containerId": "f4_admin",
+      "name": "Get User Details (Admin)",
+      "url": "{{BASE_URL}}/user/admin/users/{{TEST_USER_EMAIL}}",
+      "method": "GET",
+      "sortNum": 41000,
+      "created": "2025-01-27T10:00:00.000Z",
+      "modified": "2025-01-27T10:00:00.000Z",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ADMIN_TOKEN}}"
+        }
+      ],
+      "tests": [
+        {
+          "type": "res-code",
+          "custom": "",
+          "action": "equal",
+          "value": "200"
+        }
+      ]
+    },
+    {
+      "_id": "req_admin_update_user",
+      "colId": "stylopay_api",
+      "containerId": "f4_admin",
+      "name": "Update User (Admin)",
+      "url": "{{BASE_URL}}/user/admin/users/{{TEST_USER_EMAIL}}",
+      "method": "PUT",
+      "sortNum": 42000,
+      "created": "2025-01-27T10:00:00.000Z",
+      "modified": "2025-01-27T10:00:00.000Z",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ADMIN_TOKEN}}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"accountStatus\": \"active\",\n  \"isVerified\": true,\n  \"role\": \"premium\",\n  \"kycStatus\": \"approved\"\n}",
+        "form": []
+      },
+      "tests": [
+        {
+          "type": "res-code",
+          "custom": "",
+          "action": "equal",
+          "value": "200"
+        }
+      ]
+    },
+    {
+      "_id": "req_admin_delete_user",
+      "colId": "stylopay_api",
+      "containerId": "f4_admin",
+      "name": "Delete User (Admin)",
+      "url": "{{BASE_URL}}/user/admin/users/{{TEST_USER_EMAIL}}",
+      "method": "DELETE",
+      "sortNum": 43000,
+      "created": "2025-01-27T10:00:00.000Z",
+      "modified": "2025-01-27T10:00:00.000Z",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ADMIN_TOKEN}}"
+        }
+      ],
+      "tests": [
+        {
+          "type": "res-code",
+          "custom": "",
+          "action": "equal",
+          "value": "200"
+        }
+      ]
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": "{{USER_TOKEN}}"
+  },
+  "settings": {
+    "options": {
+      "baseUrl": "{{BASE_URL}}"
+    }
+  },
+  "envs": [
+    {
+      "name": "Development",
+      "default": true,
+      "global": true,
+      "data": [
+        {
+          "name": "BASE_URL",
+          "value": "http://localhost:5000/api"
+        },
+        {
+          "name": "USER_TOKEN",
+          "value": ""
+        },
+        {
+          "name": "ADMIN_TOKEN",
+          "value": ""
+        },
+        {
+          "name": "ZOQQ_TOKEN",
+          "value": ""
+        },
+        {
+          "name": "ZOQQ_ACCOUNT_ID",
+          "value": ""
+        },
+        {
+          "name": "TEST_USER_EMAIL",
+          "value": ""
+        },
+        {
+          "name": "ADMIN_EMAIL",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "name": "Production",
+      "default": false,
+      "global": false,
+      "data": [
+        {
+          "name": "BASE_URL",
+          "value": "https://api.stylopay.com/api"
+        },
+        {
+          "name": "USER_TOKEN",
+          "value": ""
+        },
+        {
+          "name": "ADMIN_TOKEN",
+          "value": ""
+        },
+        {
+          "name": "ZOQQ_TOKEN",
+          "value": ""
+        },
+        {
+          "name": "ZOQQ_ACCOUNT_ID",
+          "value": ""
+        },
+        {
+          "name": "TEST_USER_EMAIL",
+          "value": ""
+        },
+        {
+          "name": "ADMIN_EMAIL",
+          "value": ""
+        }
+      ]
+    }
+  ]
+} 
