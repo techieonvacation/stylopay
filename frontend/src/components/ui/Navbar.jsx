@@ -1,14 +1,20 @@
 import { useState, useEffect } from "react";
 import { Menu, X, Phone, Mail, ChevronDown } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useSelector } from "react-redux";
 import { Button } from "./Button";
 import { ThemeToggleButton } from "../common/ThemeToggleButton";
+import UserDropdown from "./UserDropdown";
+import { selectIsAuthenticated } from "../../store/slices/authSlice";
 import logo from "../../../public/images/logo.png";
 
 // Professional User Navbar with Design System
 export default function UserNavbar5() {
   const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+
+  // Redux state
+  const isAuthenticated = useSelector(selectIsAuthenticated);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -118,27 +124,23 @@ export default function UserNavbar5() {
             {/* Desktop Actions - Professional Buttons */}
             <div className="hidden lg:flex items-center space-x-3">
               <ThemeToggleButton />
-              <Link to="/login">
-                <Button
-                  variant="outline"
-                  size="md"
-                >
-                  Login
-                </Button>
-              </Link>
-              <Link to="/signup">
-                <Button
-                  variant="default"
-                  size="md"
-                >
-                  Sign Up
-                </Button>
-              </Link>
+
+              {/* Conditional Authentication UI */}
+              {isAuthenticated ? (
+                <UserDropdown />
+              ) : (
+                <Link to="/login">
+                  <Button variant="outline" size="md">
+                    Sign In
+                  </Button>
+                </Link>
+              )}
             </div>
 
             {/* Mobile menu button */}
             <div className="lg:hidden flex items-center space-x-3">
               <ThemeToggleButton />
+              {isAuthenticated && <UserDropdown />}
               <button
                 onClick={() => setIsOpen(!isOpen)}
                 className="p-2 rounded-lg transition-base text-text-secondary hover:bg-brand-primary/8 hover:text-brand-primary"
@@ -217,26 +219,28 @@ export default function UserNavbar5() {
                 </Link>
 
                 {/* Mobile Action Buttons - Professional Styling */}
-                <div className="pt-6 space-y-3">
-                  <Link
-                    to="/login"
-                    className="block"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    <button className="w-full px-6 py-3 rounded-lg font-semibold transition-base border-2 border-brand-primary/30 text-brand-primary hover:bg-brand-primary/5">
-                      Login
-                    </button>
-                  </Link>
-                  <Link
-                    to="/signup"
-                    className="block"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    <button className="w-full px-6 py-3 rounded-lg font-semibold transition-base bg-brand-primary text-white shadow-custom-md hover:bg-brand-primary-hover">
-                      Sign Up
-                    </button>
-                  </Link>
-                </div>
+                {!isAuthenticated && (
+                  <div className="pt-6 space-y-3">
+                    <Link
+                      to="/login"
+                      className="block"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      <button className="w-full px-6 py-3 rounded-lg font-semibold transition-base border-2 border-brand-primary/30 text-brand-primary hover:bg-brand-primary/5">
+                        Login
+                      </button>
+                    </Link>
+                    <Link
+                      to="/signup"
+                      className="block"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      <button className="w-full px-6 py-3 rounded-lg font-semibold transition-base bg-brand-primary text-white shadow-custom-md hover:bg-brand-primary-hover">
+                        Sign Up
+                      </button>
+                    </Link>
+                  </div>
+                )}
               </div>
             </div>
           )}

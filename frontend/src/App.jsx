@@ -18,10 +18,14 @@ import Home from "./pages/Home";
 import LoginPage from "./pages/common/LoginPage";
 import SignupPage from "./pages/common/SignupPage";
 
+// User Pages
+import UserDashboard from "./pages/User/UserDashboard";
+import UserProfile from "./pages/User/UserProfile";
+import UserSettings from "./pages/User/UserSettings";
+
 // Authentication Components
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import AuthStateManager from "./components/auth/AuthStateManager";
-import UserDashboard from "./pages/User/UserDashboard";
 
 /**
  * App Router Component (inside Redux Provider)
@@ -94,10 +98,28 @@ function AppRouter() {
         />
 
         <Route
+          path="/user/profile"
+          element={
+            <ProtectedRoute>
+              <UserProfile />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/user/settings"
+          element={
+            <ProtectedRoute>
+              <UserSettings />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
           path="/profile"
           element={
             <ProtectedRoute>
-              <div>User Profile (TODO: Create component)</div>
+              <UserProfile />
             </ProtectedRoute>
           }
         />
@@ -115,7 +137,7 @@ function AppRouter() {
           path="/settings"
           element={
             <ProtectedRoute>
-              <div>Settings (TODO: Create component)</div>
+              <UserSettings />
             </ProtectedRoute>
           }
         />
